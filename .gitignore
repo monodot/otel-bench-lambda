@@ -1,0 +1,8 @@
+k6/results
+target
+.idea
+*.zip
+*.tfstate
+*.tfstate.backup
+terraform.tfvars
+.terraform
