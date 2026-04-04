@@ -7,14 +7,28 @@ data "external" "whoami" {
 # ── Shared locals ─────────────────────────────────────────────────────────────
 
 locals {
-  jar_path = "${path.module}/../function/target/authz-function-1.0-SNAPSHOT.jar"
+  # ── Language configurations ──────────────────────────────────────────────────
+  # Each entry defines the runtime, handler, and pre-built artifact path for a
+  # supported language. Build the artifact before running `terraform apply`.
+  # Add new languages here and extend the `language` variable validation list.
+  language_configs = {
+    java = {
+      runtime       = "java21"
+      handler       = "com.example.AuthzHandler"
+      artifact_path = "${path.module}/../functions/java/target/authz-function-1.0-SNAPSHOT.jar"
+    }
+    # nodejs = {
+    #   runtime       = "nodejs20.x"
+    #   handler       = "index.handler"
+    #   artifact_path = "${path.module}/../functions/nodejs/dist/function.zip"
+    # }
+  }
 
-  # Derived from source-file hashes so Terraform detects changes at plan time
-  # without needing to read the JAR itself (which may not yet exist on first plan).
-  source_code_hash = sha256(join("", [
-    null_resource.build_jar.triggers["pom_hash"],
-    null_resource.build_jar.triggers["handler_hash"],
-  ]))
+  lang = local.language_configs[var.language]
+
+  # Kept as convenience aliases so the 11 module calls below stay readable.
+  jar_path         = local.lang.artifact_path
+  source_code_hash = filebase64sha256(local.lang.artifact_path)
 
   otlp_auth_string     = base64encode("${var.otlp_username}:${var.otlp_password}")
   grafana_otlp_headers = "Authorization=Basic ${local.otlp_auth_string}"

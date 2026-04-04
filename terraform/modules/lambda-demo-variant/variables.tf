@@ -3,13 +3,25 @@ variable "name_prefix" {
   type        = string
 }
 
+variable "runtime" {
+  description = "Lambda runtime identifier, e.g. java21, nodejs20.x"
+  type        = string
+  default     = "java21"
+}
+
+variable "handler" {
+  description = "Lambda handler entry point, e.g. com.example.AuthzHandler or index.handler"
+  type        = string
+  default     = "com.example.AuthzHandler"
+}
+
 variable "jar_path" {
-  description = "Local path to the shaded JAR produced by `mvn package`"
+  description = "Local path to the shaded JAR produced by `mvn package`. Must exist before running terraform apply."
   type        = string
 }
 
 variable "source_code_hash" {
-  description = "Hash of the function source, used to trigger redeployment. Pass the value from the root null_resource triggers."
+  description = "Hash of the built JAR, used to trigger redeployment. Pass filebase64sha256(local.jar_path) from the root module."
   type        = string
 }
 

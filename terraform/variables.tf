@@ -41,3 +41,14 @@ variable "lambda_insights_layer_arn" {
   type        = string
   default     = "arn:aws:lambda:us-east-1:580247275435:layer:LambdaInsightsExtension:53"
 }
+
+variable "language" {
+  description = "Language runtime to benchmark. Determines which function artifact is deployed."
+  type        = string
+  default     = "java"
+
+  validation {
+    condition     = contains(["java"], var.language)
+    error_message = "Supported languages: java."
+  }
+}

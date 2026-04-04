@@ -1,16 +1,3 @@
-# ── Build the function JAR ────────────────────────────────────────────────────
-
-resource "null_resource" "build_jar" {
-  triggers = {
-    pom_hash     = filemd5("${path.module}/../function/pom.xml")
-    handler_hash = filemd5("${path.module}/../function/src/main/java/com/example/AuthzHandler.java")
-  }
-
-  provisioner "local-exec" {
-    command = "cd ${path.module}/../function && mvn package -q"
-  }
-}
-
 # ── IAM — shared Lambda execution role ───────────────────────────────────────
 
 resource "aws_iam_role" "lambda" {
@@ -116,7 +103,6 @@ resource "aws_iam_role_policy_attachment" "lambda_vpc" {
 #   jar_path                  = local.jar_path
 #   source_code_hash          = local.source_code_hash
 #   lambda_insights_layer_arn = var.lambda_insights_layer_arn
-#   depends_on                = [null_resource.build_jar]
 #
 # Collector-layer variants also share:
 #   collector_layer_arn        = var.collector_layer_arn
@@ -133,13 +119,14 @@ module "config_1" {
   source = "./modules/lambda-demo-variant"
 
   name_prefix               = "${var.name_prefix}-c1-baseline"
+  runtime                   = local.lang.runtime
+  handler                   = local.lang.handler
   jar_path                  = local.jar_path
   source_code_hash          = local.source_code_hash
   execution_role_arn        = aws_iam_role.lambda.arn
   lambda_insights_layer_arn = var.lambda_insights_layer_arn
 
-  tags       = local.common_tags
-  depends_on = [null_resource.build_jar]
+  tags = local.common_tags
 }
 
 # ── Config 2: OTel SDK loaded, all exporters disabled ────────────────────────
@@ -148,6 +135,8 @@ module "config_2" {
   source = "./modules/lambda-demo-variant"
 
   name_prefix               = "${var.name_prefix}-c2-sdk"
+  runtime                   = local.lang.runtime
+  handler                   = local.lang.handler
   jar_path                  = local.jar_path
   source_code_hash          = local.source_code_hash
   execution_role_arn        = aws_iam_role.lambda.arn
@@ -157,8 +146,7 @@ module "config_2" {
   otel_metrics_exporter     = "none"
   otel_logs_exporter        = "none"
 
-  tags       = local.common_tags
-  depends_on = [null_resource.build_jar]
+  tags = local.common_tags
 }
 
 # ── Config 3: Direct export to external OTLP endpoint ─────────────────────────────────
@@ -167,6 +155,8 @@ module "config_3" {
   source = "./modules/lambda-demo-variant"
 
   name_prefix                 = "${var.name_prefix}-c3-direct"
+  runtime                     = local.lang.runtime
+  handler                     = local.lang.handler
   jar_path                    = local.jar_path
   source_code_hash            = local.source_code_hash
   execution_role_arn          = aws_iam_role.lambda.arn
@@ -178,8 +168,7 @@ module "config_3" {
   otel_exporter_otlp_endpoint = var.otlp_endpoint
   otel_exporter_otlp_headers  = local.grafana_otlp_headers
 
-  tags       = local.common_tags
-  depends_on = [null_resource.build_jar]
+  tags = local.common_tags
 }
 
 # ── Config 4: Collector Lambda Layer (full signals) ───────────────────────────
@@ -188,6 +177,8 @@ module "config_4" {
   source = "./modules/lambda-demo-variant"
 
   name_prefix                = "${var.name_prefix}-c4-col-layer"
+  runtime                    = local.lang.runtime
+  handler                    = local.lang.handler
   jar_path                   = local.jar_path
   source_code_hash           = local.source_code_hash
   execution_role_arn         = aws_iam_role.lambda.arn
@@ -201,8 +192,7 @@ module "config_4" {
   otlp_endpoint              = var.otlp_endpoint
   otlp_auth_string           = local.otlp_auth_string
 
-  tags       = local.common_tags
-  depends_on = [null_resource.build_jar]
+  tags = local.common_tags
 }
 
 # ── Config 5: External ECS Fargate collector ──────────────────────────────────
@@ -211,6 +201,8 @@ module "config_5" {
   source = "./modules/lambda-demo-variant"
 
   name_prefix                 = "${var.name_prefix}-c5-ext-col"
+  runtime                     = local.lang.runtime
+  handler                     = local.lang.handler
   jar_path                    = local.jar_path
   source_code_hash            = local.source_code_hash
   execution_role_arn          = aws_iam_role.lambda.arn
@@ -223,8 +215,7 @@ module "config_5" {
   vpc_subnet_ids              = aws_subnet.private[*].id
   vpc_security_group_ids      = [aws_security_group.config_5_lambda.id]
 
-  tags       = local.common_tags
-  depends_on = [null_resource.build_jar]
+  tags = local.common_tags
 }
 
 # # ── Config 6: Collector Layer — metrics only ──────────────────────────────────
@@ -233,6 +224,8 @@ module "config_6" {
   source = "./modules/lambda-demo-variant"
 
   name_prefix                = "${var.name_prefix}-c6-metrics"
+  runtime                    = local.lang.runtime
+  handler                    = local.lang.handler
   jar_path                   = local.jar_path
   source_code_hash           = local.source_code_hash
   execution_role_arn         = aws_iam_role.lambda.arn
@@ -246,8 +239,7 @@ module "config_6" {
   otlp_endpoint              = var.otlp_endpoint
   otlp_auth_string           = local.otlp_auth_string
 
-  tags       = local.common_tags
-  depends_on = [null_resource.build_jar]
+  tags = local.common_tags
 }
 
 # # ── Config 7: Collector Layer — traces only ───────────────────────────────────
@@ -256,6 +248,8 @@ module "config_7" {
   source = "./modules/lambda-demo-variant"
 
   name_prefix                = "${var.name_prefix}-c7-traces"
+  runtime                    = local.lang.runtime
+  handler                    = local.lang.handler
   jar_path                   = local.jar_path
   source_code_hash           = local.source_code_hash
   execution_role_arn         = aws_iam_role.lambda.arn
@@ -269,8 +263,7 @@ module "config_7" {
   otlp_endpoint              = var.otlp_endpoint
   otlp_auth_string           = local.otlp_auth_string
 
-  tags       = local.common_tags
-  depends_on = [null_resource.build_jar]
+  tags = local.common_tags
 }
 
 # # ── Config 8: Collector Layer — 128 MB ────────────────────────────────────────
@@ -279,6 +272,8 @@ module "config_8" {
   source = "./modules/lambda-demo-variant"
 
   name_prefix                = "${var.name_prefix}-c8-128mb"
+  runtime                    = local.lang.runtime
+  handler                    = local.lang.handler
   jar_path                   = local.jar_path
   source_code_hash           = local.source_code_hash
   execution_role_arn         = aws_iam_role.lambda.arn
@@ -293,8 +288,7 @@ module "config_8" {
   otlp_auth_string           = local.otlp_auth_string
   memory_size                = 128
 
-  tags       = local.common_tags
-  depends_on = [null_resource.build_jar]
+  tags = local.common_tags
 }
 
 # # ── Config 9: Collector Layer — 1024 MB ───────────────────────────────────────
@@ -303,6 +297,8 @@ module "config_9" {
   source = "./modules/lambda-demo-variant"
 
   name_prefix                = "${var.name_prefix}-c9-1024mb"
+  runtime                    = local.lang.runtime
+  handler                    = local.lang.handler
   jar_path                   = local.jar_path
   source_code_hash           = local.source_code_hash
   execution_role_arn         = aws_iam_role.lambda.arn
@@ -317,8 +313,7 @@ module "config_9" {
   otlp_auth_string           = local.otlp_auth_string
   memory_size                = 1024
 
-  tags       = local.common_tags
-  depends_on = [null_resource.build_jar]
+  tags = local.common_tags
 }
 
 # # ── Config 10: Collector Layer + SnapStart ────────────────────────────────────
@@ -327,6 +322,8 @@ module "config_10" {
   source = "./modules/lambda-demo-variant"
 
   name_prefix                = "${var.name_prefix}-c10-snapstart"
+  runtime                    = local.lang.runtime
+  handler                    = local.lang.handler
   jar_path                   = local.jar_path
   source_code_hash           = local.source_code_hash
   execution_role_arn         = aws_iam_role.lambda.arn
@@ -341,8 +338,7 @@ module "config_10" {
   otlp_auth_string           = local.otlp_auth_string
   snapstart_enabled          = true
 
-  tags       = local.common_tags
-  depends_on = [null_resource.build_jar]
+  tags = local.common_tags
 }
 
 # # ── Config 11: Direct export + SnapStart ──────────────────────────────────────
@@ -351,6 +347,8 @@ module "config_11" {
   source = "./modules/lambda-demo-variant"
 
   name_prefix                 = "${var.name_prefix}-c11-direct-snap"
+  runtime                     = local.lang.runtime
+  handler                     = local.lang.handler
   jar_path                    = local.jar_path
   source_code_hash            = local.source_code_hash
   execution_role_arn          = aws_iam_role.lambda.arn
@@ -363,6 +361,5 @@ module "config_11" {
   otel_exporter_otlp_headers  = local.grafana_otlp_headers
   snapstart_enabled           = true
 
-  tags       = local.common_tags
-  depends_on = [null_resource.build_jar]
+  tags = local.common_tags
 }

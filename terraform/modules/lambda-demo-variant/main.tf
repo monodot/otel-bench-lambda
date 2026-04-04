@@ -55,8 +55,8 @@ locals {
 resource "aws_lambda_function" "this" {
   function_name    = var.name_prefix
   role             = var.execution_role_arn
-  runtime          = "java21"
-  handler          = "com.example.AuthzHandler"
+  runtime          = var.runtime
+  handler          = var.handler
   memory_size      = var.memory_size
   timeout          = 30
   filename         = var.jar_path
