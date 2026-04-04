@@ -1,3 +1,8 @@
+output "name_prefix" {
+  description = "Name prefix applied to all resources. Pass as NAME_PREFIX to k6 to correlate config tags with Lambda function/service names."
+  value       = var.name_prefix
+}
+
 output "config_1_url" { value = module.config_1.function_url }
 output "config_2_url" { value = module.config_2.function_url }
 output "config_3_url" { value = module.config_3.function_url }

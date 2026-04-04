@@ -90,6 +90,7 @@ Run the benchmark test inside Grafana Cloud k6:
 
 ```bash
 k6 cloud run \
+  --env NAME_PREFIX=$(terraform -chdir=terraform output -raw name_prefix) \
   --env C1_BASELINE_URL=$(terraform -chdir=terraform output -raw config_1_url) \
   --env C2_SDK_URL=$(terraform -chdir=terraform output -raw config_2_url) \
   --env C3_DIRECT_URL=$(terraform -chdir=terraform output -raw config_3_url) \
@@ -104,10 +105,20 @@ k6 cloud run \
   k6/benchmark-with-scenarios.js
 ```
 
+Or to just run a subset:
+
+```bash
+k6 cloud run \
+  --env NAME_PREFIX=$(terraform -chdir=terraform output -raw name_prefix) \
+  --env C3_DIRECT_URL=$(terraform -chdir=terraform output -raw config_3_url) \
+  k6/benchmark-with-scenarios.js
+```
+
 Or, if you'd rather run it locally, but publish the results to your Grafana Cloud k6 project:
 
 ```bash
 k6 cloud run --local-execution \
+  --env NAME_PREFIX=$(terraform -chdir=terraform output -raw name_prefix) \
   --env C1_BASELINE_URL=$(terraform -chdir=terraform output -raw config_1_url) \
   --env C2_SDK_URL=$(terraform -chdir=terraform output -raw config_2_url) \
   --env C3_DIRECT_URL=$(terraform -chdir=terraform output -raw config_3_url) \
