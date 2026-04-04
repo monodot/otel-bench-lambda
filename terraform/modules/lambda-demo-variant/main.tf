@@ -115,6 +115,11 @@ resource "aws_lambda_function_url" "latest" {
   }
 }
 
+// With SnapStart, Lambda initializes your function when you publish a function version.
+// Lambda takes a Firecracker microVM snapshot of the memory and disk state of the
+// initialized execution environment, encrypts the snapshot, and intelligently caches it
+// to optimize retrieval latency.
+// https://docs.aws.amazon.com/lambda/latest/dg/snapstart.html
 resource "aws_lambda_function_url" "snapstart" {
   count              = var.snapstart_enabled ? 1 : 0
   function_name      = aws_lambda_function.this.function_name
