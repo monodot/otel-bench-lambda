@@ -30,20 +30,20 @@ A separate k6 load test is used to test each variant, to capture cold-start and 
 
 - AWS CLI configured with credentials for your target account
 - Terraform >= 1.5
-- Java 21 + Maven 3.9
+- Java 21 + Maven (required to build the Java function)
 - k6
 - Grafana instance (open source, Enterprise or Grafana Cloud are all OK)
 
 ## Deploy the function variants
 
-### 1. Build the Lambda function JAR
+### 1. Build the Lambda function
 
-You'll need to build the function JAR locally, first.
+Build the Java function JAR before running Terraform. Terraform reads the built artifact directly and will fail if it does not exist.
 
-INFO: Maven Wrapper was added to this project using `mvn wrapper:wrapper`.
+> Maven Wrapper was added to this project using `mvn wrapper:wrapper`.
 
 ```bash
-cd function
+cd functions/java
 ./mvnw package -q
 ```
 
@@ -69,8 +69,6 @@ export AWS_PROFILE=...
 terraform -chdir=terraform init
 terraform -chdir=terraform apply
 ```
-
-Terraform also rebuilds the JAR automatically when source files change (via `null_resource`).
 
 ## Test the function variants
 
