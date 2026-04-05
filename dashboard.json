@@ -432,18 +432,18 @@
           "logGroups": [
             {
               "accountId": "487248437766",
-              "arn": "arn:aws:logs:us-east-1:487248437766:log-group:/aws/lambda/otel-bench-c1-baseline:*",
-              "name": "/aws/lambda/otel-bench-c1-baseline"
+              "arn": "arn:aws:logs:us-east-1:487248437766:log-group:/aws/lambda/otel-bench-c01-baseline:*",
+              "name": "/aws/lambda/otel-bench-c01-baseline"
             },
             {
               "accountId": "487248437766",
-              "arn": "arn:aws:logs:us-east-1:487248437766:log-group:/aws/lambda/otel-bench-c2-sdk:*",
-              "name": "/aws/lambda/otel-bench-c2-sdk"
+              "arn": "arn:aws:logs:us-east-1:487248437766:log-group:/aws/lambda/otel-bench-c02-sdk:*",
+              "name": "/aws/lambda/otel-bench-c02-sdk"
             },
             {
               "accountId": "487248437766",
-              "arn": "arn:aws:logs:us-east-1:487248437766:log-group:/aws/lambda/otel-bench-c3-direct:*",
-              "name": "/aws/lambda/otel-bench-c3-direct"
+              "arn": "arn:aws:logs:us-east-1:487248437766:log-group:/aws/lambda/otel-bench-c03-direct:*",
+              "name": "/aws/lambda/otel-bench-c03-direct"
             }
           ],
           "logsQueryScope": "logGroupName",

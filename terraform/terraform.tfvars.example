@@ -8,8 +8,9 @@ otlp_password  = "glc_eyJ..."
 
 # OTel Lambda layers — append the version number shown in the AWS console or
 # Lambda > Layers > opentelemetry-javaagent-* / opentelemetry-collector-amd64-*
-java_agent_layer_arn  = "arn:aws:lambda:us-east-1:184161586896:layer:opentelemetry-javaagent-0_17_0:<version>"
-collector_layer_arn   = "arn:aws:lambda:us-east-1:184161586896:layer:opentelemetry-collector-amd64-0_12_0:<version>"
+java_agent_layer_arn   = "arn:aws:lambda:us-east-1:184161586896:layer:opentelemetry-javaagent-0_17_0:<version>"
+java_wrapper_layer_arn = "arn:aws:lambda:us-east-1:184161586896:layer:opentelemetry-javawrapper-0_19_0:<version>"
+collector_layer_arn    = "arn:aws:lambda:us-east-1:184161586896:layer:opentelemetry-collector-amd64-0_12_0:<version>"
 
 # CloudWatch Lambda Insights — latest x86_64 version for us-east-1
 # See https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Lambda-Insights-extension-versions.html

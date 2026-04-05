@@ -1,27 +1,33 @@
 locals {
   # When the sidecar collector layer is present, the agent routes to localhost.
   # Otherwise the agent exports directly (or drops if no endpoint is set).
-  use_collector     = var.collector_layer_arn != null
-  use_direct_export = !local.use_collector && var.otel_exporter_otlp_endpoint != ""
+  use_collector         = var.collector_layer_arn != null
+  use_direct_export     = !local.use_collector && var.otel_exporter_otlp_endpoint != ""
+  has_instrumentation   = var.java_agent_layer_arn != null || var.java_wrapper_layer_arn != null
 
   layers = compact([
     var.java_agent_layer_arn,
+    var.java_wrapper_layer_arn,
     var.collector_layer_arn,
     var.collector_config_layer_arn,
     var.lambda_insights_layer_arn,
   ])
 
-  # Environment variables contributed by the Java agent (only when it is present).
-  agent_env = var.java_agent_layer_arn != null ? {
-    AWS_LAMBDA_EXEC_WRAPPER                              = "/opt/otel-handler"
-    OTEL_SERVICE_NAME                                    = var.name_prefix
-    OTEL_TRACES_EXPORTER                                 = var.otel_traces_exporter
-    OTEL_METRICS_EXPORTER                                = var.otel_metrics_exporter
-    OTEL_LOGS_EXPORTER                                   = var.otel_logs_exporter
-    OTEL_PROPAGATORS                                     = "tracecontext,baggage,xray"
-    OTEL_INSTRUMENTATION_AWS_LAMBDA_FLUSH_TIMEOUT        = "10000"
-    OTEL_INSTRUMENTATION_COMMON_DEFAULT_ENABLED          = "true"
-  } : {}
+  # Environment variables contributed by the Java agent or wrapper (only when present).
+  agent_env = local.has_instrumentation ? merge(
+    {
+      AWS_LAMBDA_EXEC_WRAPPER                              = "/opt/otel-handler"
+      OTEL_SERVICE_NAME                                    = var.name_prefix
+      OTEL_TRACES_EXPORTER                                 = var.otel_traces_exporter
+      OTEL_METRICS_EXPORTER                                = var.otel_metrics_exporter
+      OTEL_LOGS_EXPORTER                                   = var.otel_logs_exporter
+      OTEL_PROPAGATORS                                     = "tracecontext,baggage,xray"
+      OTEL_INSTRUMENTATION_AWS_LAMBDA_FLUSH_TIMEOUT        = "10000"
+      OTEL_INSTRUMENTATION_COMMON_DEFAULT_ENABLED          = "true"
+    },
+    # OTEL_JAVA_AGENT_FAST_STARTUP_ENABLED is agent-specific; ignored for wrapper.
+    (var.fast_startup_enabled && var.java_agent_layer_arn != null) ? { OTEL_JAVA_AGENT_FAST_STARTUP_ENABLED = "true" } : {}
+  ) : {}
 
   # When the sidecar collector is active, tell the agent to send to localhost
   # and pass the external OTLP endpoint credentials for the collector to use.

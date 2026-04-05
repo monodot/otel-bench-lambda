@@ -45,12 +45,13 @@ const coldStartCount    = new Counter('cold_start_count');
 const NAME_PREFIX = __ENV.NAME_PREFIX || 'otel-bench';
 
 const SUFFIXES = [
-    'c1-baseline', 'c2-sdk',      'c3-direct',  'c4-col-layer',   'c5-ext-col',
-    'c6-metrics',  'c7-traces',   'c8-128mb',   'c9-1024mb',
-    'c10-snapstart', 'c11-direct-snap',
+    'c01-baseline', 'c02-sdk',      'c03-direct',  'c04-col-layer',   'c05-ext-col',
+    'c06-metrics',  'c07-traces',   'c08-128mb',   'c09-1024mb',
+    'c10-snapstart', 'c11-direct-snap', 'c12-fast-startup', 'c13-java-wrapper',
+    'c14-fast-snap',  'c15-wrapper-snap',
 ];
 
-// c1-baseline → C1_BASELINE_URL
+// c01-baseline → C01_BASELINE_URL
 function suffixToEnvVar(suffix) {
     return suffix.toUpperCase().replace(/-/g, '_') + '_URL';
 }
@@ -110,8 +111,8 @@ function buildThresholds() {
     for (const name of ACTIVE_CONFIGS) {
         t[`cold_start_duration_ms{config:${name}}`] = [];
         t[`cold_start_count{config:${name}}`]       = [];
-        // c8-128mb always times out — exclude from the warm latency SLO.
-        if (!name.endsWith('c8-128mb')) {
+        // c08-128mb always times out — exclude from the warm latency SLO.
+        if (!name.endsWith('c08-128mb')) {
             t[`warm_duration_ms{config:${name}}`] = ['p(99)<5000'];
         }
     }

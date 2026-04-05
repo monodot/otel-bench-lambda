@@ -14,17 +14,21 @@ A separate k6 load test is used to test each variant, to capture cold-start and 
 
 | #  | Config            | Export target          | OTel Instrumentation | SnapStart | Memory  |
 |----|-------------------|------------------------|----------------------|-----------|---------|
-| 1  | `c1-baseline`     | None                   | None                 | Off       | 512 MB  |
-| 2  | `c2-sdk`          | None                   | Full (no export)     | Off       | 512 MB  |
-| 3  | `c3-direct`       | External OTLP direct   | Full                 | Off       | 512 MB  |
-| 4  | `c4-col-layer`    | Collector Lambda Layer | Full                 | Off       | 512 MB  |
-| 5  | `c5-ext-col`      | External ECS Collector | Full                 | Off       | 512 MB  |
-| 6  | `c6-metrics`      | Collector Lambda Layer | Metrics only         | Off       | 512 MB  |
-| 7  | `c7-traces`       | Collector Lambda Layer | Traces only          | Off       | 512 MB  |
-| 8  | `c8-128mb`        | Collector Lambda Layer | Full                 | Off       | 128 MB  |
-| 9  | `c9-1024mb`       | Collector Lambda Layer | Full                 | Off       | 1024 MB |
+| 1  | `c01-baseline`     | None                   | None                 | Off       | 512 MB  |
+| 2  | `c02-sdk`          | None                   | Full (no export)     | Off       | 512 MB  |
+| 3  | `c03-direct`       | External OTLP direct   | Full                 | Off       | 512 MB  |
+| 4  | `c04-col-layer`    | Collector Lambda Layer | Full                 | Off       | 512 MB  |
+| 5  | `c05-ext-col`      | External ECS Collector | Full                 | Off       | 512 MB  |
+| 6  | `c06-metrics`      | Collector Lambda Layer | Metrics only         | Off       | 512 MB  |
+| 7  | `c07-traces`       | Collector Lambda Layer | Traces only          | Off       | 512 MB  |
+| 8  | `c08-128mb`        | Collector Lambda Layer | Full                 | Off       | 128 MB  |
+| 9  | `c09-1024mb`       | Collector Lambda Layer | Full                 | Off       | 1024 MB |
 | 10 | `c10-snapstart`   | Collector Lambda Layer | Full                 | On        | 512 MB  |
-| 11 | `c11-direct-snap` | External OTLP direct   | Full                 | On        | 512 MB  |
+| 11 | `c11-direct-snap`  | External OTLP direct   | Full                 | On        | 512 MB  |
+| 12 | `c12-fast-startup` | Collector Lambda Layer | Full (fast startup)  | Off       | 512 MB  |
+| 13 | `c13-java-wrapper` | Collector Lambda Layer | Full (Java wrapper)  | Off       | 512 MB  |
+| 14 | `c14-fast-snap`    | Collector Lambda Layer | Full (fast startup)  | On        | 512 MB  |
+| 15 | `c15-wrapper-snap` | Collector Lambda Layer | Full (Java wrapper)  | On        | 512 MB  |
 
 ## Prerequisites
 
@@ -89,17 +93,21 @@ Run the benchmark test inside Grafana Cloud k6:
 ```bash
 k6 cloud run \
   --env NAME_PREFIX=$(terraform -chdir=terraform output -raw name_prefix) \
-  --env C1_BASELINE_URL=$(terraform -chdir=terraform output -raw config_1_url) \
-  --env C2_SDK_URL=$(terraform -chdir=terraform output -raw config_2_url) \
-  --env C3_DIRECT_URL=$(terraform -chdir=terraform output -raw config_3_url) \
-  --env C4_COL_LAYER_URL=$(terraform -chdir=terraform output -raw config_4_url) \
-  --env C5_EXT_COL_URL=$(terraform -chdir=terraform output -raw config_5_url) \
-  --env C6_METRICS_URL=$(terraform -chdir=terraform output -raw config_6_url) \
-  --env C7_TRACES_URL=$(terraform -chdir=terraform output -raw config_7_url) \
-  --env C8_128MB_URL=$(terraform -chdir=terraform output -raw config_8_url) \
-  --env C9_1024MB_URL=$(terraform -chdir=terraform output -raw config_9_url) \
+  --env C01_BASELINE_URL=$(terraform -chdir=terraform output -raw config_1_url) \
+  --env C02_SDK_URL=$(terraform -chdir=terraform output -raw config_2_url) \
+  --env C03_DIRECT_URL=$(terraform -chdir=terraform output -raw config_3_url) \
+  --env C04_COL_LAYER_URL=$(terraform -chdir=terraform output -raw config_4_url) \
+  --env C05_EXT_COL_URL=$(terraform -chdir=terraform output -raw config_5_url) \
+  --env C06_METRICS_URL=$(terraform -chdir=terraform output -raw config_6_url) \
+  --env C07_TRACES_URL=$(terraform -chdir=terraform output -raw config_7_url) \
+  --env C08_128MB_URL=$(terraform -chdir=terraform output -raw config_8_url) \
+  --env C09_1024MB_URL=$(terraform -chdir=terraform output -raw config_9_url) \
   --env C10_SNAPSTART_URL=$(terraform -chdir=terraform output -raw config_10_url) \
   --env C11_DIRECT_SNAP_URL=$(terraform -chdir=terraform output -raw config_11_url) \
+  --env C12_FAST_STARTUP_URL=$(terraform -chdir=terraform output -raw config_12_url) \
+  --env C13_JAVA_WRAPPER_URL=$(terraform -chdir=terraform output -raw config_13_url) \
+  --env C14_FAST_SNAP_URL=$(terraform -chdir=terraform output -raw config_14_url) \
+  --env C15_WRAPPER_SNAP_URL=$(terraform -chdir=terraform output -raw config_15_url) \
   k6/benchmark-with-scenarios.js
 ```
 
@@ -108,7 +116,7 @@ Or to just run a subset:
 ```bash
 k6 cloud run \
   --env NAME_PREFIX=$(terraform -chdir=terraform output -raw name_prefix) \
-  --env C3_DIRECT_URL=$(terraform -chdir=terraform output -raw config_3_url) \
+  --env C03_DIRECT_URL=$(terraform -chdir=terraform output -raw config_3_url) \
   k6/benchmark-with-scenarios.js
 ```
 
@@ -117,17 +125,21 @@ Or, if you'd rather run it locally, but publish the results to your Grafana Clou
 ```bash
 k6 cloud run --local-execution \
   --env NAME_PREFIX=$(terraform -chdir=terraform output -raw name_prefix) \
-  --env C1_BASELINE_URL=$(terraform -chdir=terraform output -raw config_1_url) \
-  --env C2_SDK_URL=$(terraform -chdir=terraform output -raw config_2_url) \
-  --env C3_DIRECT_URL=$(terraform -chdir=terraform output -raw config_3_url) \
-  --env C4_COL_LAYER_URL=$(terraform -chdir=terraform output -raw config_4_url) \
-  --env C5_EXT_COL_URL=$(terraform -chdir=terraform output -raw config_5_url) \
-  --env C6_METRICS_URL=$(terraform -chdir=terraform output -raw config_6_url) \
-  --env C7_TRACES_URL=$(terraform -chdir=terraform output -raw config_7_url) \
-  --env C8_128MB_URL=$(terraform -chdir=terraform output -raw config_8_url) \
-  --env C9_1024MB_URL=$(terraform -chdir=terraform output -raw config_9_url) \
+  --env C01_BASELINE_URL=$(terraform -chdir=terraform output -raw config_1_url) \
+  --env C02_SDK_URL=$(terraform -chdir=terraform output -raw config_2_url) \
+  --env C03_DIRECT_URL=$(terraform -chdir=terraform output -raw config_3_url) \
+  --env C04_COL_LAYER_URL=$(terraform -chdir=terraform output -raw config_4_url) \
+  --env C05_EXT_COL_URL=$(terraform -chdir=terraform output -raw config_5_url) \
+  --env C06_METRICS_URL=$(terraform -chdir=terraform output -raw config_6_url) \
+  --env C07_TRACES_URL=$(terraform -chdir=terraform output -raw config_7_url) \
+  --env C08_128MB_URL=$(terraform -chdir=terraform output -raw config_8_url) \
+  --env C09_1024MB_URL=$(terraform -chdir=terraform output -raw config_9_url) \
   --env C10_SNAPSTART_URL=$(terraform -chdir=terraform output -raw config_10_url) \
   --env C11_DIRECT_SNAP_URL=$(terraform -chdir=terraform output -raw config_11_url) \
+  --env C12_FAST_STARTUP_URL=$(terraform -chdir=terraform output -raw config_12_url) \
+  --env C13_JAVA_WRAPPER_URL=$(terraform -chdir=terraform output -raw config_13_url) \
+  --env C14_FAST_SNAP_URL=$(terraform -chdir=terraform output -raw config_14_url) \
+  --env C15_WRAPPER_SNAP_URL=$(terraform -chdir=terraform output -raw config_15_url) \
   k6/benchmark-with-scenarios.js
 ```
 
@@ -141,11 +153,35 @@ Run k6 to test each config in turn:
 
 ### Run a single load test
 
+Just the Lambda SnapStart-enabled variants:
+
+```bash
+k6 cloud run \
+  --env NAME_PREFIX=$(terraform -chdir=terraform output -raw name_prefix) \
+  --env C10_SNAPSTART_URL=$(terraform -chdir=terraform output -raw config_10_url) \
+  --env C11_DIRECT_SNAP_URL=$(terraform -chdir=terraform output -raw config_11_url) \
+  k6/benchmark-with-scenarios.js
+```
+
+The traces-only, 1024MB, Fast Startup and Java Wrapper variants:
+
+```bash
+k6 cloud run \
+  --env NAME_PREFIX=$(terraform -chdir=terraform output -raw name_prefix) \
+  --env C07_TRACES_URL=$(terraform -chdir=terraform output -raw config_7_url) \
+  --env C09_1024MB_URL=$(terraform -chdir=terraform output -raw config_9_url) \
+  --env C12_FAST_STARTUP_URL=$(terraform -chdir=terraform output -raw config_12_url) \
+  --env C13_JAVA_WRAPPER_URL=$(terraform -chdir=terraform output -raw config_13_url) \
+  --env C14_FAST_SNAP_URL=$(terraform -chdir=terraform output -raw config_14_url) \
+  --env C15_WRAPPER_SNAP_URL=$(terraform -chdir=terraform output -raw config_15_url) \
+  k6/benchmark-with-scenarios.js
+```
+
 Test config 1 (the baseline):
 
 ```bash
 FUNCTION_URL=$(terraform -chdir=terraform output -raw config_1_url) \
-CONFIG_NAME=c1-baseline \
+CONFIG_NAME=c01-baseline \
 k6 run k6/benchmark.js
 ```
 
@@ -153,7 +189,7 @@ Test config 2:
 
 ```bash
 FUNCTION_URL=$(terraform -chdir=terraform output -raw config_2_url) \
-CONFIG_NAME=c2-sdk \
+CONFIG_NAME=c02-sdk \
 k6 run k6/benchmark.js
 ```
 
@@ -161,7 +197,7 @@ Test config 3:
 
 ```shell
 FUNCTION_URL=$(terraform -chdir=terraform output -raw config_3_url) \
-CONFIG_NAME=c3-direct \
+CONFIG_NAME=c03-direct \
 k6 run k6/benchmark.js
 ```
 
@@ -170,49 +206,49 @@ Each run produces CSV output in `k6/results/`.
 ### Test a function manually
 
 ```sh
-aws lambda invoke --region us-east-1 --function-name otel-bench-c1-baseline --payload '{}' /tmp/lambda-response.json 2>&1 && cat /tmp/lambda-response.json
+aws lambda invoke --region us-east-1 --function-name otel-bench-c01-baseline --payload '{}' /tmp/lambda-response.json 2>&1 && cat /tmp/lambda-response.json
 ```
 
 Scenario 3:
 
 ```shell
-aws lambda invoke --region us-east-1 --function-name otel-bench-c3-direct --payload '{}' /tmp/lambda-response.json 2>&1 && cat /tmp/lambda-response.json
+aws lambda invoke --region us-east-1 --function-name otel-bench-c03-direct --payload '{}' /tmp/lambda-response.json 2>&1 && cat /tmp/lambda-response.json
 ```
 
 Scenario 4:
 
 ```shell
-aws lambda invoke --region us-east-1 --function-name otel-bench-c4-col-layer --payload '{}' /tmp/lambda-response.json 2>&1 && cat /tmp/lambda-response.json
+aws lambda invoke --region us-east-1 --function-name otel-bench-c04-col-layer --payload '{}' /tmp/lambda-response.json 2>&1 && cat /tmp/lambda-response.json
 ```
 
 Scenario 5:
 
 ```shell
-aws lambda invoke --region us-east-1 --function-name otel-bench-c5-ext-col --payload '{}' /tmp/lambda-response.json 2>&1 && cat /tmp/lambda-response.json
+aws lambda invoke --region us-east-1 --function-name otel-bench-c05-ext-col --payload '{}' /tmp/lambda-response.json 2>&1 && cat /tmp/lambda-response.json
 ```
 
 Scenario 6:
 
 ```shell
-aws lambda invoke --region us-east-1 --function-name otel-bench-c6-metrics --payload '{}' /tmp/lambda-response.json 2>&1 && cat /tmp/lambda-response.json
+aws lambda invoke --region us-east-1 --function-name otel-bench-c06-metrics --payload '{}' /tmp/lambda-response.json 2>&1 && cat /tmp/lambda-response.json
 ```
 
 Scenario 7:
 
 ```shell
-aws lambda invoke --region us-east-1 --function-name otel-bench-c7-traces --payload '{}' /tmp/lambda-response.json 2>&1 && cat /tmp/lambda-response.json
+aws lambda invoke --region us-east-1 --function-name otel-bench-c07-traces --payload '{}' /tmp/lambda-response.json 2>&1 && cat /tmp/lambda-response.json
 ```
 
 Scenario 8 - fails with timeout:
 
 ```shell
-aws lambda invoke --region us-east-1 --function-name otel-bench-c8-128mb --payload '{}' /tmp/lambda-response.json 2>&1 && cat /tmp/lambda-response.json
+aws lambda invoke --region us-east-1 --function-name otel-bench-c08-128mb --payload '{}' /tmp/lambda-response.json 2>&1 && cat /tmp/lambda-response.json
 ```
 
 Scenario 9:
 
 ```shell
-aws lambda invoke --region us-east-1 --function-name otel-bench-c9-1024mb --payload '{}' /tmp/lambda-response.json 2>&1 && cat /tmp/lambda-response.json
+aws lambda invoke --region us-east-1 --function-name otel-bench-c09-1024mb --payload '{}' /tmp/lambda-response.json 2>&1 && cat /tmp/lambda-response.json
 ```
 
 Scenario 10:

@@ -50,6 +50,12 @@ variable "java_agent_layer_arn" {
   default     = null
 }
 
+variable "java_wrapper_layer_arn" {
+  description = "ARN of the OTel Java wrapper layer. Alternative to java_agent_layer_arn — set one or the other, not both."
+  type        = string
+  default     = null
+}
+
 variable "collector_layer_arn" {
   description = "ARN of the OTel Collector Lambda layer. Null = no sidecar collector."
   type        = string
@@ -132,6 +138,12 @@ variable "otlp_auth_string" {
   type        = string
   default     = ""
   sensitive   = true
+}
+
+variable "fast_startup_enabled" {
+  description = "Set OTEL_JAVA_AGENT_FAST_STARTUP_ENABLED=true. Skips some SDK init work to reduce cold-start overhead at the cost of completeness."
+  type        = bool
+  default     = false
 }
 
 variable "vpc_subnet_ids" {

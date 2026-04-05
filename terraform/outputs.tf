@@ -14,6 +14,10 @@ output "config_8_url" { value = module.config_8.function_url }
 output "config_9_url" { value = module.config_9.function_url }
 output "config_10_url" { value = module.config_10.function_url }
 output "config_11_url" { value = module.config_11.function_url }
+output "config_12_url" { value = module.config_12.function_url }
+output "config_13_url" { value = module.config_13.function_url }
+output "config_14_url" { value = module.config_14.function_url }
+output "config_15_url" { value = module.config_15.function_url }
 
 output "ecs_collector_endpoint" {
   description = "NLB DNS name for the external OTel Collector (config 5)"

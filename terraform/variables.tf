@@ -31,6 +31,11 @@ variable "java_agent_layer_arn" {
   type        = string
 }
 
+variable "java_wrapper_layer_arn" {
+  description = "ARN of the OTel Java wrapper Lambda layer (opentelemetry-javawrapper-*)"
+  type        = string
+}
+
 variable "collector_layer_arn" {
   description = "ARN of the OTel Collector Lambda layer (opentelemetry-collector-amd64-*)"
   type        = string
