@@ -16,39 +16,25 @@ A mock JWT-validation function (~25 ms of real work) is deployed in multiple var
 
 We use [k6](https://k6.io/) to load test each variant, to capture cold-start and warm p50/p99 latencies. The results are tagged by `config` (full function name) and `language` so you can slice any way you like in Grafana.
 
-### Java configs (c01–c15)
+### Configs
 
-| #  | Config                   | Export target                   | OTel Instrumentation | SnapStart | Memory  |
-|----|--------------------------|---------------------------------|----------------------|-----------|---------|
-| 1  | `c01-baseline-java`      | None                            | None                 | Off       | 512 MB  |
-| 2  | `c02-sdk-java`           | None                            | Full (no export)     | Off       | 512 MB  |
-| 3  | `c03-direct-java`        | External OTLP direct            | Full                 | Off       | 512 MB  |
-| 4  | `c04-col-layer-java`     | Collector Lambda Layer          | Full                 | Off       | 512 MB  |
-| 5  | `c05-ext-col-java`       | External ECS Collector (in VPC) | Full                 | Off       | 512 MB  |
-| 6  | `c06-metrics-java`       | Collector Lambda Layer          | Metrics only         | Off       | 512 MB  |
-| 7  | `c07-traces-java`        | Collector Lambda Layer          | Traces only          | Off       | 512 MB  |
-| 8  | `c08-128mb-java`         | Collector Lambda Layer          | Full                 | Off       | 128 MB  |
-| 9  | `c09-1024mb-java`        | Collector Lambda Layer          | Full                 | Off       | 1024 MB |
-| 10 | `c10-snapstart-java`     | Collector Lambda Layer          | Full                 | On        | 512 MB  |
-| 11 | `c11-direct-snap-java`   | External OTLP direct            | Full                 | On        | 512 MB  |
-| 12 | `c12-fast-startup-java`  | Collector Lambda Layer          | Full (fast startup)  | Off       | 512 MB  |
-| 13 | `c13-java-wrapper-java`  | Collector Lambda Layer          | Full (Java wrapper)  | Off       | 512 MB  |
-| 14 | `c14-fast-snap-java`     | Collector Lambda Layer          | Full (fast startup)  | On        | 512 MB  |
-| 15 | `c15-wrapper-snap-java`  | Collector Lambda Layer          | Full (Java wrapper)  | On        | 512 MB  |
-
-### Python configs (c01–c09)
-
-| #  | Config                    | Export target                   | OTel Instrumentation | Memory  |
-|----|---------------------------|---------------------------------|----------------------|---------|
-| 1  | `c01-baseline-python`     | None                            | None                 | 512 MB  |
-| 2  | `c02-sdk-python`          | None                            | Full (no export)     | 512 MB  |
-| 3  | `c03-direct-python`       | External OTLP direct            | Full                 | 512 MB  |
-| 4  | `c04-col-layer-python`    | Collector Lambda Layer          | Full                 | 512 MB  |
-| 5  | `c05-ext-col-python`      | External ECS Collector (in VPC) | Full                 | 512 MB  |
-| 6  | `c06-metrics-python`      | Collector Lambda Layer          | Metrics only         | 512 MB  |
-| 7  | `c07-traces-python`       | Collector Lambda Layer          | Traces only          | 512 MB  |
-| 8  | `c08-128mb-python`        | Collector Lambda Layer          | Full                 | 128 MB  |
-| 9  | `c09-1024mb-python`       | Collector Lambda Layer          | Full                 | 1024 MB |
+| #   | Export target                   | OTel Instrumentation | Memory  | SnapStart | Java | Python |
+|-----|---------------------------------|----------------------|---------|-----------|------|--------|
+| c01 | None                            | None                 | 512 MB  | Off       | ✓    | ✓      |
+| c02 | None                            | Full (no export)     | 512 MB  | Off       | ✓    | ✓      |
+| c03 | External OTLP direct            | Full                 | 512 MB  | Off       | ✓    | ✓      |
+| c04 | Collector Lambda Layer          | Full                 | 512 MB  | Off       | ✓    | ✓      |
+| c05 | External ECS Collector (in VPC) | Full                 | 512 MB  | Off       | ✓    | ✓      |
+| c06 | Collector Lambda Layer          | Metrics only         | 512 MB  | Off       | ✓    | ✓      |
+| c07 | Collector Lambda Layer          | Traces only          | 512 MB  | Off       | ✓    | ✓      |
+| c08 | Collector Lambda Layer          | Full                 | 128 MB  | Off       | ✓    | ✓      |
+| c09 | Collector Lambda Layer          | Full                 | 1024 MB | Off       | ✓    | ✓      |
+| c10 | Collector Lambda Layer          | Full                 | 512 MB  | On        | ✓    | —      |
+| c11 | External OTLP direct            | Full                 | 512 MB  | On        | ✓    | —      |
+| c12 | Collector Lambda Layer          | Full (fast startup)  | 512 MB  | Off       | ✓    | —      |
+| c13 | Collector Lambda Layer          | Full (Java wrapper)  | 512 MB  | Off       | ✓    | —      |
+| c14 | Collector Lambda Layer          | Full (fast startup)  | 512 MB  | On        | ✓    | —      |
+| c15 | Collector Lambda Layer          | Full (Java wrapper)  | 512 MB  | On        | ✓    | —      |
 
 ## Prerequisites
 
