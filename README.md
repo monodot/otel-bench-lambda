@@ -20,23 +20,23 @@ We use [k6](https://k6.io/) to load test each variant, to capture cold-start and
 
 The tests comprise the following scenarios or configurations. Each of them varies in export destination, which signals are enabled, memory, SnapStart and so on:
 
-| #   | Export target                   | OTel Instrumentation | Memory  | SnapStart | Java | Python |
-|-----|---------------------------------|----------------------|---------|-----------|------|--------|
-| c01 | None                            | None                 | 512 MB  | Off       | ✓    | ✓      |
-| c02 | None                            | Full (no export)     | 512 MB  | Off       | ✓    | ✓      |
-| c03 | External OTLP direct            | Full                 | 512 MB  | Off       | ✓    | ✓      |
-| c04 | Collector Lambda Layer          | Full                 | 512 MB  | Off       | ✓    | ✓      |
-| c05 | External ECS Collector (in VPC) | Full                 | 512 MB  | Off       | ✓    | ✓      |
-| c06 | Collector Lambda Layer          | Metrics only         | 512 MB  | Off       | ✓    | ✓      |
-| c07 | Collector Lambda Layer          | Traces only          | 512 MB  | Off       | ✓    | ✓      |
-| c08 | Collector Lambda Layer          | Full                 | 128 MB  | Off       | ✓    | ✓      |
-| c09 | Collector Lambda Layer          | Full                 | 1024 MB | Off       | ✓    | ✓      |
-| c10 | Collector Lambda Layer          | Full                 | 512 MB  | On        | ✓    | —      |
-| c11 | External OTLP direct            | Full                 | 512 MB  | On        | ✓    | —      |
-| c12 | Collector Lambda Layer          | Full (fast startup)  | 512 MB  | Off       | ✓    | —      |
-| c13 | Collector Lambda Layer          | Full (Java wrapper)  | 512 MB  | Off       | ✓    | —      |
-| c14 | Collector Lambda Layer          | Full (fast startup)  | 512 MB  | On        | ✓    | —      |
-| c15 | Collector Lambda Layer          | Full (Java wrapper)  | 512 MB  | On        | ✓    | —      |
+| #   | Export target                       | OTel Instrumentation    | Memory      | SnapStart | Java | Python |
+|-----|-------------------------------------|-------------------------|-------------|-----------|------|--------|
+| c01 | None                                | None                    | 512 MB      | Off       | ✓    | ✓      |
+| c02 | None                                | Full (no export)        | 512 MB      | Off       | ✓    | ✓      |
+| c03 | **External OTLP direct**            | Full                    | 512 MB      | Off       | ✓    | ✓      |
+| c04 | **Collector Lambda Layer**          | Full                    | 512 MB      | Off       | ✓    | ✓      |
+| c05 | **External ECS Collector (in VPC)** | Full                    | 512 MB      | Off       | ✓    | ✓      |
+| c06 | Collector Lambda Layer              | **Metrics only**        | 512 MB      | Off       | ✓    | ✓      |
+| c07 | Collector Lambda Layer              | **Traces only**         | 512 MB      | Off       | ✓    | ✓      |
+| c08 | Collector Lambda Layer              | Full                    | **128 MB**  | Off       | ✓    | ✓      |
+| c09 | Collector Lambda Layer              | Full                    | **1024 MB** | Off       | ✓    | ✓      |
+| c10 | Collector Lambda Layer              | Full                    | 512 MB      | **On**    | ✓    | —      |
+| c11 | **External OTLP direct**            | Full                    | 512 MB      | **On**    | ✓    | —      |
+| c12 | Collector Lambda Layer              | **Full (fast startup)** | 512 MB      | Off       | ✓    | —      |
+| c13 | Collector Lambda Layer              | **Full (Java wrapper)** | 512 MB      | Off       | ✓    | —      |
+| c14 | Collector Lambda Layer              | Full (fast startup)     | 512 MB      | **On**    | ✓    | —      |
+| c15 | Collector Lambda Layer              | Full (Java wrapper)     | 512 MB      | **On**    | ✓    | —      |
 
 Notes:
 
@@ -108,15 +108,13 @@ terraform -chdir=terraform apply
 
 To test the function variants, use k6. You have the option of running it in three different modes:
 
-- `k6 run`: k6 will test the services from your local machine, and save the results locally. Then you can inspect and interpret the results. 
+- `k6 run`: k6 will test the services from your local machine, and save the results locally. Then you can inspect and interpret the results written to a CSV file. 
 - `k6 cloud run --local-execution`: k6 will test the services from your local machine, and write results to Grafana Cloud k6.
 - `k6 cloud run`: k6 will upload the test to Grafana Cloud, run completely in the cloud and write the results to Grafana Cloud k6. 
 
-Use the `cloud` options if you want to take advantage of the included dashboard in this repo, and view the test results alongside your CloudWatch metrics.
+Use one of the `k6 cloud run` options if you want to use the dashboard in this repo, and view the test results alongside your CloudWatch metrics.
 
 ### Run load tests locally
-
-Each run produces CSV output in `k6/results/`. You may also consider streaming the results to your own database - [see the k6 docs for more info](https://grafana.com/docs/k6/latest/get-started/results-output/).
 
 Test just the baseline scenarios for Java and Python:
 
@@ -127,6 +125,8 @@ k6 run \
   --env C01_BASELINE_PYTHON_URL=$(terraform -chdir=terraform output -raw config_01_python_url) \
   k6/benchmark-with-scenarios.js
 ```
+
+Each run produces CSV output in `k6/results/`. You may also consider streaming the results to your own database (e.g. Prometheus) using k6's different outputs - [see the k6 docs for more info](https://grafana.com/docs/k6/latest/get-started/results-output/).
 
 ### Run load tests with Grafana Cloud k6
 
@@ -287,7 +287,6 @@ Open the dashboard, then:
 
 - Select your CloudWatch data source from the variable dropdowns
 - Select your k6 Project, test and test run to see correlated client-side request metrics. 
-- Use the `language` tag to filter by runtime, or the `config` tag to drill into a specific variant.
 
 ## Architecture
 
