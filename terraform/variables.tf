@@ -26,14 +26,46 @@ variable "otlp_password" {
   sensitive   = true
 }
 
+# ── Optional features ────────────────────────────────────────────────────────
+
+variable "create_grafana_iam_user" {
+  description = "Create an IAM user and access key for the Grafana Cloud CloudWatch data source. Only needed if you want to use the included Grafana dashboard."
+  type        = bool
+  default     = false
+}
+
+# ── Language deployment flags ─────────────────────────────────────────────────
+
+variable "deploy_java" {
+  description = "Deploy Java Lambda variants (c01–c15)"
+  type        = bool
+  default     = true
+}
+
+variable "deploy_python" {
+  description = "Deploy Python Lambda variants (c01–c09)"
+  type        = bool
+  default     = false
+}
+
+# ── Lambda layer ARNs ─────────────────────────────────────────────────────────
+
 variable "java_agent_layer_arn" {
-  description = "ARN of the OTel Java agent Lambda layer (opentelemetry-javaagent-*)"
+  description = "ARN of the OTel Java agent Lambda layer (opentelemetry-javaagent-*). Required when deploy_java = true."
   type        = string
+  default     = null
 }
 
 variable "java_wrapper_layer_arn" {
-  description = "ARN of the OTel Java wrapper Lambda layer (opentelemetry-javawrapper-*)"
+  description = "ARN of the OTel Java wrapper Lambda layer (opentelemetry-javawrapper-*). Required for c13/c15 Java wrapper configs."
   type        = string
+  default     = null
+}
+
+variable "python_agent_layer_arn" {
+  description = "ARN of the ADOT Python Lambda layer (aws-otel-python-amd64-ver-*). Required when deploy_python = true."
+  type        = string
+  default     = null
 }
 
 variable "collector_layer_arn" {
@@ -45,15 +77,4 @@ variable "lambda_insights_layer_arn" {
   description = "ARN of the CloudWatch Lambda Insights extension layer for the target region (x86_64)"
   type        = string
   default     = "arn:aws:lambda:us-east-1:580247275435:layer:LambdaInsightsExtension:53"
-}
-
-variable "language" {
-  description = "Language runtime to benchmark. Determines which function artifact is deployed."
-  type        = string
-  default     = "java"
-
-  validation {
-    condition     = contains(["java"], var.language)
-    error_message = "Supported languages: java."
-  }
 }

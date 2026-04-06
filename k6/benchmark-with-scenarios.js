@@ -2,19 +2,20 @@
  * k6 multi-config benchmark for the AWS Lambda OTel overhead matrix.
  *
  * Scenarios are built dynamically: only configs whose URL env var is set are
- * included. Run all 11, or just one or two — the timing offsets adjust automatically.
+ * included. Run all configs, or just one or two — the timing offsets adjust
+ * automatically.
  *
- * Usage (all configs):
+ * Usage (all Java configs):
  *   NAME_PREFIX=$(terraform -chdir=terraform output -raw name_prefix) \
- *   C1_BASELINE_URL=$(terraform -chdir=terraform output -raw config_1_url) \
- *   C2_SDK_URL=$(terraform -chdir=terraform output -raw config_2_url) \
+ *   C01_BASELINE_JAVA_URL=$(terraform -chdir=terraform output -raw config_1_java_url) \
+ *   C02_SDK_JAVA_URL=$(terraform -chdir=terraform output -raw config_2_java_url) \
  *   ... \
  *   k6 run k6/benchmark-with-scenarios.js
  *
- * Usage (subset):
+ * Usage (subset — e.g. Java c01 baseline + Python c01 baseline):
  *   NAME_PREFIX=$(terraform -chdir=terraform output -raw name_prefix) \
- *   C1_BASELINE_URL=$(terraform -chdir=terraform output -raw config_1_url) \
- *   C4_COL_LAYER_URL=$(terraform -chdir=terraform output -raw config_4_url) \
+ *   C01_BASELINE_JAVA_URL=$(terraform -chdir=terraform output -raw config_1_java_url) \
+ *   C01_BASELINE_PYTHON_URL=$(terraform -chdir=terraform output -raw config_1_python_url) \
  *   k6 run k6/benchmark-with-scenarios.js
  *
  * NAME_PREFIX must match the Terraform name_prefix variable (default: otel-bench).
@@ -25,6 +26,9 @@
  *   +0 s  — burst ramp-up (forces cold starts)
  *   +50 s — warm constant-rate phase begins
  *   +110 s — warm phase ends; 10 s cooldown before the next config
+ *
+ * Results can be sliced by 'config' tag (full function name) or 'language' tag
+ * (java / python) in Grafana.
  */
 
 import http from 'k6/http';
@@ -40,24 +44,37 @@ const coldStartCount    = new Counter('cold_start_count');
 
 // ── Config registry ────────────────────────────────────────────────────────────
 // SUFFIXES is the canonical ordered list. To add a new config, add its suffix
-// here and the corresponding URL env var is derived automatically.
+// here — the URL env var and language tag are derived automatically.
+// Suffix format: {config-id}-{language}  (e.g. c01-baseline-java)
 
 const NAME_PREFIX = __ENV.NAME_PREFIX || 'otel-bench';
 
 const SUFFIXES = [
-    'c01-baseline', 'c02-sdk',      'c03-direct',  'c04-col-layer',   'c05-ext-col',
-    'c06-metrics',  'c07-traces',   'c08-128mb',   'c09-1024mb',
-    'c10-snapstart', 'c11-direct-snap', 'c12-fast-startup', 'c13-java-wrapper',
-    'c14-fast-snap',  'c15-wrapper-snap',
+    // Java — all 15 configs
+    'c01-baseline-java',    'c02-sdk-java',          'c03-direct-java',
+    'c04-col-layer-java',   'c05-ext-col-java',      'c06-metrics-java',
+    'c07-traces-java',      'c08-128mb-java',         'c09-1024mb-java',
+    'c10-snapstart-java',   'c11-direct-snap-java',  'c12-fast-startup-java',
+    'c13-java-wrapper-java','c14-fast-snap-java',    'c15-wrapper-snap-java',
+    // Python — c01–c09 only (SnapStart / fast-startup / wrapper are Java-only)
+    'c01-baseline-python',  'c02-sdk-python',         'c03-direct-python',
+    'c04-col-layer-python', 'c05-ext-col-python',     'c06-metrics-python',
+    'c07-traces-python',    'c08-128mb-python',        'c09-1024mb-python',
 ];
 
-// c01-baseline → C01_BASELINE_URL
+// c01-baseline-java → C01_BASELINE_JAVA_URL
 function suffixToEnvVar(suffix) {
     return suffix.toUpperCase().replace(/-/g, '_') + '_URL';
 }
 
 function cfg(suffix) {
     return `${NAME_PREFIX}-${suffix}`;
+}
+
+// Extract language from the last segment of the suffix (e.g. "java", "python").
+function languageFromSuffix(suffix) {
+    const parts = suffix.split('-');
+    return parts[parts.length - 1];
 }
 
 // Only include configs whose URL was provided. Order is preserved from SUFFIXES.
@@ -75,6 +92,7 @@ function buildScenarios() {
         const warmStart  = burstStart + 50;
         const url        = __ENV[suffixToEnvVar(suffix)] || '';
         const configName = cfg(suffix);
+        const language   = languageFromSuffix(suffix);
         const key        = suffix.replace(/-/g, '_');
 
         scenarios[`${key}_burst`] = {
@@ -87,7 +105,7 @@ function buildScenarios() {
                 {duration: '10s', target: 0},
             ],
             gracefulRampDown: '5s',
-            env: {FUNCTION_URL: url, CONFIG_NAME: configName},
+            env: {FUNCTION_URL: url, CONFIG_NAME: configName, LANGUAGE: language},
         };
 
         scenarios[`${key}_warm`] = {
@@ -98,7 +116,7 @@ function buildScenarios() {
             duration:        '60s',
             preAllocatedVUs: 15,
             maxVUs:          30,
-            env: {FUNCTION_URL: url, CONFIG_NAME: configName},
+            env: {FUNCTION_URL: url, CONFIG_NAME: configName, LANGUAGE: language},
         };
     });
     return scenarios;
@@ -112,7 +130,7 @@ function buildThresholds() {
         t[`cold_start_duration_ms{config:${name}}`] = [];
         t[`cold_start_count{config:${name}}`]       = [];
         // c08-128mb always times out — exclude from the warm latency SLO.
-        if (!name.endsWith('c08-128mb')) {
+        if (!name.endsWith('c08-128mb-java') && !name.endsWith('c08-128mb-python')) {
             t[`warm_duration_ms{config:${name}}`] = ['p(99)<5000'];
         }
     }
@@ -153,16 +171,17 @@ export default function () {
     if (!__ENV.FUNCTION_URL) return;
 
     const configName = __ENV.CONFIG_NAME;
+    const language   = __ENV.LANGUAGE;
 
     const res = http.post(__ENV.FUNCTION_URL, PAYLOAD, {
         headers: HEADERS,
         timeout: '30s',
-        tags:    {config: configName},
+        tags:    {config: configName, language: language},
     });
 
     const ok = check(res, {
         'status 200 or 403': (r) => r.status === 200 || r.status === 403,
-    }, {config: configName});
+    }, {config: configName, language: language});
 
     if (!ok) return;
 
@@ -173,7 +192,7 @@ export default function () {
         return;
     }
 
-    const tags = {config: configName};
+    const tags = {config: configName, language: language};
     if (body.coldStart === true) {
         coldStartDuration.add(res.timings.duration, tags);
         coldStartCount.add(1, tags);
@@ -226,10 +245,15 @@ function mv(data, metricName, stat) {
 }
 
 function toCsv(data) {
-    const rows = ['config,metric,stat,value'];
+    const rows = ['config,language,metric,stat,value'];
     for (const [name, metric] of Object.entries(data.metrics)) {
+        const match = name.match(/^([^{]+)\{config:([^}]+)}/);
+        if (!match) continue;   // skip global/untagged metrics (vus, http_req_*, etc.)
+        const metricName = match[1];
+        const config     = match[2];
+        const language   = languageFromSuffix(config);
         for (const [stat, value] of Object.entries(metric.values)) {
-            rows.push(`,${name},${stat},${value}`);
+            rows.push(`${config},${language},${metricName},${stat},${value}`);
         }
     }
     return rows.join('\n') + '\n';

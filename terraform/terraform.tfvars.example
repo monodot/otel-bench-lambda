@@ -6,11 +6,29 @@ otlp_endpoint  = "https://otlp-gateway-prod-us-east-0.grafana.net/otlp"
 otlp_username  = "123456"
 otlp_password  = "glc_eyJ..."
 
+# ── Optional features ────────────────────────────────────────────────────────
+# Set to true only if you want to use the included Grafana dashboard to view
+# CloudWatch metrics. Creates an IAM user + access key for the Grafana
+# CloudWatch data source.
+create_grafana_iam_user = false
+
+# ── Language deployment flags ─────────────────────────────────────────────────
+# Set either or both to true. Each language deploys independently.
+
+deploy_java   = true
+deploy_python = false
+
+# ── Lambda layer ARNs ─────────────────────────────────────────────────────────
 # OTel Lambda layers — append the version number shown in the AWS console or
 # Lambda > Layers > opentelemetry-javaagent-* / opentelemetry-collector-amd64-*
+
 java_agent_layer_arn   = "arn:aws:lambda:us-east-1:184161586896:layer:opentelemetry-javaagent-0_17_0:<version>"
 java_wrapper_layer_arn = "arn:aws:lambda:us-east-1:184161586896:layer:opentelemetry-javawrapper-0_19_0:<version>"
 collector_layer_arn    = "arn:aws:lambda:us-east-1:184161586896:layer:opentelemetry-collector-amd64-0_12_0:<version>"
+
+# ADOT Python layer — required when deploy_python = true
+# See https://aws-otel.github.io/docs/getting-started/lambda/lambda-python
+# python_agent_layer_arn = "arn:aws:lambda:us-east-1:901920570463:layer:aws-otel-python-amd64-ver-1-25-0:<version>"
 
 # CloudWatch Lambda Insights — latest x86_64 version for us-east-1
 # See https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Lambda-Insights-extension-versions.html

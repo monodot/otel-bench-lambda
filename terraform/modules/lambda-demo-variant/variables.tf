@@ -4,24 +4,24 @@ variable "name_prefix" {
 }
 
 variable "runtime" {
-  description = "Lambda runtime identifier, e.g. java21, nodejs20.x"
+  description = "Lambda runtime identifier, e.g. java21, python3.13"
   type        = string
   default     = "java21"
 }
 
 variable "handler" {
-  description = "Lambda handler entry point, e.g. com.example.AuthzHandler or index.handler"
+  description = "Lambda handler entry point, e.g. com.example.AuthzHandler or lambda_function.lambda_handler"
   type        = string
   default     = "com.example.AuthzHandler"
 }
 
-variable "jar_path" {
-  description = "Local path to the shaded JAR produced by `mvn package`. Must exist before running terraform apply."
+variable "artifact_path" {
+  description = "Local path to the built deployment artifact (JAR or ZIP). Must exist before running terraform apply."
   type        = string
 }
 
 variable "source_code_hash" {
-  description = "Hash of the built JAR, used to trigger redeployment. Pass filebase64sha256(local.jar_path) from the root module."
+  description = "Hash of the built artifact, used to trigger redeployment. Pass filebase64sha256(artifact_path) from the root module."
   type        = string
 }
 
@@ -44,14 +44,14 @@ variable "snapstart_enabled" {
 
 # ── Layers ────────────────────────────────────────────────────────────────────
 
-variable "java_agent_layer_arn" {
-  description = "ARN of the OTel Java agent layer. Null = no instrumentation."
+variable "agent_layer_arn" {
+  description = "ARN of the OTel agent layer (Java agent or Python ADOT layer). Null = no instrumentation."
   type        = string
   default     = null
 }
 
-variable "java_wrapper_layer_arn" {
-  description = "ARN of the OTel Java wrapper layer. Alternative to java_agent_layer_arn — set one or the other, not both."
+variable "wrapper_layer_arn" {
+  description = "ARN of the OTel wrapper layer (Java only). Alternative to agent_layer_arn — set one or the other, not both."
   type        = string
   default     = null
 }
@@ -73,6 +73,17 @@ variable "lambda_insights_layer_arn" {
   type        = string
 }
 
+# ── Agent exec wrapper ────────────────────────────────────────────────────────
+# The path injected into AWS_LAMBDA_EXEC_WRAPPER differs by language:
+#   Java agent:   /opt/otel-handler
+#   Python ADOT:  /opt/otel-instrument
+
+variable "agent_exec_wrapper" {
+  description = "AWS_LAMBDA_EXEC_WRAPPER path provided by the OTel agent layer. Java: /opt/otel-handler, Python: /opt/otel-instrument."
+  type        = string
+  default     = "/opt/otel-handler"
+}
+
 # ── Export routing ────────────────────────────────────────────────────────────
 #
 # Exactly one export mode should be active per variant:
@@ -81,7 +92,7 @@ variable "lambda_insights_layer_arn" {
 #   C) neither                   → agent runs but drops all signals (SDK-overhead-only)
 
 variable "otel_exporter_otlp_endpoint" {
-  description = "Direct OTLP endpoint for the Java agent (e.g. your observability platform or external collector URL). Ignored when collector_layer_arn is set."
+  description = "Direct OTLP endpoint for the OTel agent (e.g. your observability platform or external collector URL). Ignored when collector_layer_arn is set."
   type        = string
   default     = ""
 }
@@ -94,7 +105,7 @@ variable "otel_exporter_otlp_headers" {
 }
 
 variable "otel_traces_exporter" {
-  description = "'otlp' or 'none'. Controls whether the Java agent exports traces."
+  description = "'otlp' or 'none'. Controls whether the OTel agent exports traces."
   type        = string
   default     = "none"
 
@@ -105,7 +116,7 @@ variable "otel_traces_exporter" {
 }
 
 variable "otel_metrics_exporter" {
-  description = "'otlp' or 'none'. Controls whether the Java agent exports metrics."
+  description = "'otlp' or 'none'. Controls whether the OTel agent exports metrics."
   type        = string
   default     = "none"
 
@@ -116,7 +127,7 @@ variable "otel_metrics_exporter" {
 }
 
 variable "otel_logs_exporter" {
-  description = "'otlp' or 'none'. Controls whether the Java agent exports logs."
+  description = "'otlp' or 'none'. Controls whether the OTel agent exports logs."
   type        = string
   default     = "none"
 
@@ -141,7 +152,7 @@ variable "otlp_auth_string" {
 }
 
 variable "fast_startup_enabled" {
-  description = "Set OTEL_JAVA_AGENT_FAST_STARTUP_ENABLED=true. Skips some SDK init work to reduce cold-start overhead at the cost of completeness."
+  description = "Set OTEL_JAVA_AGENT_FAST_STARTUP_ENABLED=true. Skips some SDK init work to reduce cold-start overhead at the cost of completeness. Java agent only."
   type        = bool
   default     = false
 }

@@ -3,21 +3,35 @@ output "name_prefix" {
   value       = var.name_prefix
 }
 
-output "config_1_url" { value = module.config_1.function_url }
-output "config_2_url" { value = module.config_2.function_url }
-output "config_3_url" { value = module.config_3.function_url }
-output "config_4_url" { value = module.config_4.function_url }
-output "config_5_url" { value = module.config_5.function_url }
-output "config_6_url" { value = module.config_6.function_url }
-output "config_7_url" { value = module.config_7.function_url }
-output "config_8_url" { value = module.config_8.function_url }
-output "config_9_url" { value = module.config_9.function_url }
-output "config_10_url" { value = module.config_10.function_url }
-output "config_11_url" { value = module.config_11.function_url }
-output "config_12_url" { value = module.config_12.function_url }
-output "config_13_url" { value = module.config_13.function_url }
-output "config_14_url" { value = module.config_14.function_url }
-output "config_15_url" { value = module.config_15.function_url }
+# ── Java outputs (c01–c15) ────────────────────────────────────────────────────
+
+output "config_01_java_url" { value = var.deploy_java ? module.config_1_java[0].function_url  : "" }
+output "config_02_java_url" { value = var.deploy_java ? module.config_2_java[0].function_url  : "" }
+output "config_03_java_url" { value = var.deploy_java ? module.config_3_java[0].function_url  : "" }
+output "config_04_java_url" { value = var.deploy_java ? module.config_4_java[0].function_url  : "" }
+output "config_05_java_url" { value = var.deploy_java ? module.config_5_java[0].function_url  : "" }
+output "config_06_java_url" { value = var.deploy_java ? module.config_6_java[0].function_url  : "" }
+output "config_07_java_url" { value = var.deploy_java ? module.config_7_java[0].function_url  : "" }
+output "config_08_java_url" { value = var.deploy_java ? module.config_8_java[0].function_url  : "" }
+output "config_09_java_url" { value = var.deploy_java ? module.config_9_java[0].function_url  : "" }
+output "config_10_java_url" { value = var.deploy_java ? module.config_10_java[0].function_url : "" }
+output "config_11_java_url" { value = var.deploy_java ? module.config_11_java[0].function_url : "" }
+output "config_12_java_url" { value = var.deploy_java ? module.config_12_java[0].function_url : "" }
+output "config_13_java_url" { value = var.deploy_java ? module.config_13_java[0].function_url : "" }
+output "config_14_java_url" { value = var.deploy_java ? module.config_14_java[0].function_url : "" }
+output "config_15_java_url" { value = var.deploy_java ? module.config_15_java[0].function_url : "" }
+
+# ── Python outputs (c01–c09) ──────────────────────────────────────────────────
+
+output "config_01_python_url" { value = var.deploy_python ? module.config_1_python[0].function_url : "" }
+output "config_02_python_url" { value = var.deploy_python ? module.config_2_python[0].function_url : "" }
+output "config_03_python_url" { value = var.deploy_python ? module.config_3_python[0].function_url : "" }
+output "config_04_python_url" { value = var.deploy_python ? module.config_4_python[0].function_url : "" }
+output "config_05_python_url" { value = var.deploy_python ? module.config_5_python[0].function_url : "" }
+output "config_06_python_url" { value = var.deploy_python ? module.config_6_python[0].function_url : "" }
+output "config_07_python_url" { value = var.deploy_python ? module.config_7_python[0].function_url : "" }
+output "config_08_python_url" { value = var.deploy_python ? module.config_8_python[0].function_url : "" }
+output "config_09_python_url" { value = var.deploy_python ? module.config_9_python[0].function_url : "" }
 
 output "ecs_collector_endpoint" {
   description = "NLB DNS name for the external OTel Collector (config 5)"

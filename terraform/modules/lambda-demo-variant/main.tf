@@ -1,22 +1,22 @@
 locals {
   # When the sidecar collector layer is present, the agent routes to localhost.
   # Otherwise the agent exports directly (or drops if no endpoint is set).
-  use_collector         = var.collector_layer_arn != null
-  use_direct_export     = !local.use_collector && var.otel_exporter_otlp_endpoint != ""
-  has_instrumentation   = var.java_agent_layer_arn != null || var.java_wrapper_layer_arn != null
+  use_collector       = var.collector_layer_arn != null
+  use_direct_export   = !local.use_collector && var.otel_exporter_otlp_endpoint != ""
+  has_instrumentation = var.agent_layer_arn != null || var.wrapper_layer_arn != null
 
   layers = compact([
-    var.java_agent_layer_arn,
-    var.java_wrapper_layer_arn,
+    var.agent_layer_arn,
+    var.wrapper_layer_arn,
     var.collector_layer_arn,
     var.collector_config_layer_arn,
     var.lambda_insights_layer_arn,
   ])
 
-  # Environment variables contributed by the Java agent or wrapper (only when present).
+  # Environment variables contributed by the OTel agent or wrapper (only when present).
   agent_env = local.has_instrumentation ? merge(
     {
-      AWS_LAMBDA_EXEC_WRAPPER                              = "/opt/otel-handler"
+      AWS_LAMBDA_EXEC_WRAPPER                              = var.agent_exec_wrapper
       OTEL_SERVICE_NAME                                    = var.name_prefix
       OTEL_TRACES_EXPORTER                                 = var.otel_traces_exporter
       OTEL_METRICS_EXPORTER                                = var.otel_metrics_exporter
@@ -26,17 +26,17 @@ locals {
       OTEL_INSTRUMENTATION_COMMON_DEFAULT_ENABLED          = "true"
     },
     # OTEL_JAVA_AGENT_FAST_STARTUP_ENABLED is agent-specific; ignored for wrapper.
-    (var.fast_startup_enabled && var.java_agent_layer_arn != null) ? { OTEL_JAVA_AGENT_FAST_STARTUP_ENABLED = "true" } : {}
+    (var.fast_startup_enabled && var.agent_layer_arn != null) ? { OTEL_JAVA_AGENT_FAST_STARTUP_ENABLED = "true" } : {}
   ) : {}
 
   # When the sidecar collector is active, tell the agent to send to localhost
   # and pass the external OTLP endpoint credentials for the collector to use.
   collector_env = local.use_collector ? {
-    OTEL_EXPORTER_OTLP_ENDPOINT             = "http://localhost:4318"
-    OTEL_EXPORTER_OTLP_PROTOCOL             = "http/protobuf"
-    OPENTELEMETRY_COLLECTOR_CONFIG_URI      = "file:///opt/collector-config/config.yaml"
-    OTLP_ENDPOINT             = var.otlp_endpoint
-    OTLP_AUTH_STRING                      = var.otlp_auth_string
+    OTEL_EXPORTER_OTLP_ENDPOINT        = "http://localhost:4318"
+    OTEL_EXPORTER_OTLP_PROTOCOL        = "http/protobuf"
+    OPENTELEMETRY_COLLECTOR_CONFIG_URI = "file:///opt/collector-config/config.yaml"
+    OTLP_ENDPOINT                      = var.otlp_endpoint
+    OTLP_AUTH_STRING                   = var.otlp_auth_string
   } : {}
 
   # For direct export (no sidecar), point the agent straight at the endpoint.
@@ -65,7 +65,7 @@ resource "aws_lambda_function" "this" {
   handler          = var.handler
   memory_size      = var.memory_size
   timeout          = 30
-  filename         = var.jar_path
+  filename         = var.artifact_path
   source_code_hash = var.source_code_hash
 
   # publish = true is required for SnapStart; harmless when snapstart_enabled = false.

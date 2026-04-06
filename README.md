@@ -1,48 +1,72 @@
-# AWS Lambda OTel Observability Benchmark
+# AWS Lambda OpenTelemetry instrumentation benchmark
 
-Benchmarking the latency cost of adding OpenTelemetry instrumentation to a Java Lambda function in 11 different permutations, shipping to an external observability platform (e.g. Grafana Cloud).
+Benchmarking the latency cost of adding OpenTelemetry instrumentation to Lambda functions in multiple languages, shipping telemetry to an external observability platform via OTLP.
 
-Includes a nice Grafana dashboard to compare test results and CloudWatch metrics:
+Includes an optional dashboard for Grafana Cloud, to visualise k6 test results and CloudWatch metrics together:
 
 ![](./dashboard.jpg)
 
+## Summary of findings
+
+- Placing a Lambda in a VPC (so it can access a private otel-collector instance) can add significant latency to cold start times, due to the work required in setting up the network interface. [See Yan Cui's blog.](https://theburningmonk.com/2018/01/im-afraid-youre-thinking-about-aws-lambda-cold-starts-all-wrong/) 
+
 ## What it measures
 
-A mock JWT-validation function (~25 ms of real work) is deployed in 11 variants that vary in instrumentation depth, exporter destination, memory allocated, and whether SnapStart is enabled or not. 
+A mock JWT-validation function (~25 ms of real work) is deployed in multiple variants that vary in instrumentation depth, exporter destination, memory allocated, and (for Java) whether SnapStart or Agent Fast Start are enabled. The same config matrix is deployed for each active language, so you can compare cold-start and warm latencies between different runtimes.
 
-A separate k6 load test is used to test each variant, to capture cold-start and warm p50/p99 latencies.
+We use [k6](https://k6.io/) to load test each variant, to capture cold-start and warm p50/p99 latencies. The results are tagged by `config` (full function name) and `language` so you can slice any way you like in Grafana.
 
-| #  | Config            | Export target          | OTel Instrumentation | SnapStart | Memory  |
-|----|-------------------|------------------------|----------------------|-----------|---------|
-| 1  | `c01-baseline`     | None                   | None                 | Off       | 512 MB  |
-| 2  | `c02-sdk`          | None                   | Full (no export)     | Off       | 512 MB  |
-| 3  | `c03-direct`       | External OTLP direct   | Full                 | Off       | 512 MB  |
-| 4  | `c04-col-layer`    | Collector Lambda Layer | Full                 | Off       | 512 MB  |
-| 5  | `c05-ext-col`      | External ECS Collector | Full                 | Off       | 512 MB  |
-| 6  | `c06-metrics`      | Collector Lambda Layer | Metrics only         | Off       | 512 MB  |
-| 7  | `c07-traces`       | Collector Lambda Layer | Traces only          | Off       | 512 MB  |
-| 8  | `c08-128mb`        | Collector Lambda Layer | Full                 | Off       | 128 MB  |
-| 9  | `c09-1024mb`       | Collector Lambda Layer | Full                 | Off       | 1024 MB |
-| 10 | `c10-snapstart`   | Collector Lambda Layer | Full                 | On        | 512 MB  |
-| 11 | `c11-direct-snap`  | External OTLP direct   | Full                 | On        | 512 MB  |
-| 12 | `c12-fast-startup` | Collector Lambda Layer | Full (fast startup)  | Off       | 512 MB  |
-| 13 | `c13-java-wrapper` | Collector Lambda Layer | Full (Java wrapper)  | Off       | 512 MB  |
-| 14 | `c14-fast-snap`    | Collector Lambda Layer | Full (fast startup)  | On        | 512 MB  |
-| 15 | `c15-wrapper-snap` | Collector Lambda Layer | Full (Java wrapper)  | On        | 512 MB  |
+### Java configs (c01–c15)
+
+| #  | Config                   | Export target                   | OTel Instrumentation | SnapStart | Memory  |
+|----|--------------------------|---------------------------------|----------------------|-----------|---------|
+| 1  | `c01-baseline-java`      | None                            | None                 | Off       | 512 MB  |
+| 2  | `c02-sdk-java`           | None                            | Full (no export)     | Off       | 512 MB  |
+| 3  | `c03-direct-java`        | External OTLP direct            | Full                 | Off       | 512 MB  |
+| 4  | `c04-col-layer-java`     | Collector Lambda Layer          | Full                 | Off       | 512 MB  |
+| 5  | `c05-ext-col-java`       | External ECS Collector (in VPC) | Full                 | Off       | 512 MB  |
+| 6  | `c06-metrics-java`       | Collector Lambda Layer          | Metrics only         | Off       | 512 MB  |
+| 7  | `c07-traces-java`        | Collector Lambda Layer          | Traces only          | Off       | 512 MB  |
+| 8  | `c08-128mb-java`         | Collector Lambda Layer          | Full                 | Off       | 128 MB  |
+| 9  | `c09-1024mb-java`        | Collector Lambda Layer          | Full                 | Off       | 1024 MB |
+| 10 | `c10-snapstart-java`     | Collector Lambda Layer          | Full                 | On        | 512 MB  |
+| 11 | `c11-direct-snap-java`   | External OTLP direct            | Full                 | On        | 512 MB  |
+| 12 | `c12-fast-startup-java`  | Collector Lambda Layer          | Full (fast startup)  | Off       | 512 MB  |
+| 13 | `c13-java-wrapper-java`  | Collector Lambda Layer          | Full (Java wrapper)  | Off       | 512 MB  |
+| 14 | `c14-fast-snap-java`     | Collector Lambda Layer          | Full (fast startup)  | On        | 512 MB  |
+| 15 | `c15-wrapper-snap-java`  | Collector Lambda Layer          | Full (Java wrapper)  | On        | 512 MB  |
+
+### Python configs (c01–c09)
+
+| #  | Config                    | Export target                   | OTel Instrumentation | Memory  |
+|----|---------------------------|---------------------------------|----------------------|---------|
+| 1  | `c01-baseline-python`     | None                            | None                 | 512 MB  |
+| 2  | `c02-sdk-python`          | None                            | Full (no export)     | 512 MB  |
+| 3  | `c03-direct-python`       | External OTLP direct            | Full                 | 512 MB  |
+| 4  | `c04-col-layer-python`    | Collector Lambda Layer          | Full                 | 512 MB  |
+| 5  | `c05-ext-col-python`      | External ECS Collector (in VPC) | Full                 | 512 MB  |
+| 6  | `c06-metrics-python`      | Collector Lambda Layer          | Metrics only         | 512 MB  |
+| 7  | `c07-traces-python`       | Collector Lambda Layer          | Traces only          | 512 MB  |
+| 8  | `c08-128mb-python`        | Collector Lambda Layer          | Full                 | 128 MB  |
+| 9  | `c09-1024mb-python`       | Collector Lambda Layer          | Full                 | 1024 MB |
 
 ## Prerequisites
 
-- AWS CLI configured with credentials for your target account
+- [AWS CLI](https://aws.amazon.com/cli/) configured with credentials for your target account
 - Terraform >= 1.5
 - Java 21 + Maven (required to build the Java function)
-- k6
-- Grafana instance (open source, Enterprise or Grafana Cloud are all OK)
+- Python 3.13 + zip (required to build the Python function)
+- [k6](https://k6.io/)
+- An external OTLP endpoint, to ship telemetry signals to. If you don't have access to one, you can deploy https://github.com/grafana/docker-otel-lgtm (not in scope for this repo)
+- Grafana Cloud account (optional) - if you want to visualise the k6 test results and CloudWatch metrics together
 
 ## Deploy the function variants
 
-### 1. Build the Lambda function
+### 1. Build the Lambda functions
 
-Build the Java function JAR before running Terraform. Terraform reads the built artifact directly and will fail if it does not exist.
+Build the artifacts for the languages you intend to deploy before running Terraform. Terraform reads the built artifacts directly and will fail if they don't exist.
+
+**Java:**
 
 > Maven Wrapper was added to this project using `mvn wrapper:wrapper`.
 
@@ -53,13 +77,24 @@ cd functions/java
 
 It may produce a warning like _"a terminally deprecated method has been called"_, but you can safely ignore that.
 
+**Python:**
+
+```bash
+cd functions/python
+./build.sh
+```
+
 ### 2. Configure Terraform
 
 ```bash
 cd terraform
 cp terraform.tfvars.example terraform.tfvars
-# Edit terraform.tfvars with your OTLP credentials and layer ARNs
+# Edit terraform.tfvars — set deploy_java/deploy_python and fill in layer ARNs
 ```
+
+- Set `otlp_endpoint`, `otlp_username`, `otlp_password` to the URL, HTTP basic auth username and password of your external observability platform
+- Set `deploy_java = true` and/or `deploy_python = true` to control which language variants are deployed. You only need to provide layer ARNs for the languages you are deploying.
+- If you want to use the included Grafana dashboard to visualise k6 and CloudWatch metrics, set `create_grafana_iam_user = true` to create a user so that Grafana can query your metrics.
 
 ### 3. Authenticate to AWS and apply
 
@@ -69,6 +104,8 @@ aws sso login --sso-session SESSION
 export AWS_PROFILE=...
 ```
 
+Then apply Terraform config:
+
 ```bash
 terraform -chdir=terraform init
 terraform -chdir=terraform apply
@@ -76,204 +113,166 @@ terraform -chdir=terraform apply
 
 ## Test the function variants
 
+To test the function variants, use k6. You have the option of running it in three different modes:
+
+- `k6 run`: k6 will test the services from your local machine, and save the results locally. Then you can inspect and interpret the results. 
+- `k6 cloud run --local-execution`: k6 will test the services from your local machine, and write results to Grafana Cloud k6.
+- `k6 cloud run`: k6 will upload the test to Grafana Cloud, run completely in the cloud and write the results to Grafana Cloud k6. 
+
+Use the `cloud` options if you want to take advantage of the included dashboard in this repo, and view the test results alongside your CloudWatch metrics.
+
+### Run load tests locally
+
+Each run produces CSV output in `k6/results/`. You may also consider streaming the results to your own database - [see the k6 docs for more info](https://grafana.com/docs/k6/latest/get-started/results-output/).
+
+Test just the baseline scenarios for Java and Python:
+
+```bash
+k6 run \
+  --env NAME_PREFIX=$(terraform -chdir=terraform output -raw name_prefix) \
+  --env C01_BASELINE_JAVA_URL=$(terraform -chdir=terraform output -raw config_01_java_url) \
+  --env C01_BASELINE_PYTHON_URL=$(terraform -chdir=terraform output -raw config_01_python_url) \
+  k6/benchmark-with-scenarios.js
+```
+
 ### Run load tests with Grafana Cloud k6
 
-You can run this test entirely within the included k6 usage in Grafana Cloud's free tier. k6 usage is measured in VUh (virtual user-hours), and these tests fall well within those limits.
+You can run this test entirely within [Grafana Cloud's free tier](https://grafana.com/auth/sign-up). k6 usage is measured in VUh (virtual user-hours), and these tests fall within the included free usage.
 
-The test will run entirely in Grafana Cloud infrastructure and store the results in your Grafana Cloud account for easy dashboard and comparison against AWS's server-side metrics.
-
-First head to your Grafana Cloud instance > Testing and synthetics > Performance > Settings and grab your **Personal API token**:
+Head to your Grafana Cloud instance > Testing and synthetics > Performance > Settings and grab your **Personal API token**, then:
 
 ```bash
 k6 cloud login -t TOKEN --stack SLUG
 ```
 
-Run the benchmark test inside Grafana Cloud k6:
+Run the benchmark test for all Java configs (30m duration):
 
 ```bash
 k6 cloud run \
   --env NAME_PREFIX=$(terraform -chdir=terraform output -raw name_prefix) \
-  --env C01_BASELINE_URL=$(terraform -chdir=terraform output -raw config_1_url) \
-  --env C02_SDK_URL=$(terraform -chdir=terraform output -raw config_2_url) \
-  --env C03_DIRECT_URL=$(terraform -chdir=terraform output -raw config_3_url) \
-  --env C04_COL_LAYER_URL=$(terraform -chdir=terraform output -raw config_4_url) \
-  --env C05_EXT_COL_URL=$(terraform -chdir=terraform output -raw config_5_url) \
-  --env C06_METRICS_URL=$(terraform -chdir=terraform output -raw config_6_url) \
-  --env C07_TRACES_URL=$(terraform -chdir=terraform output -raw config_7_url) \
-  --env C08_128MB_URL=$(terraform -chdir=terraform output -raw config_8_url) \
-  --env C09_1024MB_URL=$(terraform -chdir=terraform output -raw config_9_url) \
-  --env C10_SNAPSTART_URL=$(terraform -chdir=terraform output -raw config_10_url) \
-  --env C11_DIRECT_SNAP_URL=$(terraform -chdir=terraform output -raw config_11_url) \
-  --env C12_FAST_STARTUP_URL=$(terraform -chdir=terraform output -raw config_12_url) \
-  --env C13_JAVA_WRAPPER_URL=$(terraform -chdir=terraform output -raw config_13_url) \
-  --env C14_FAST_SNAP_URL=$(terraform -chdir=terraform output -raw config_14_url) \
-  --env C15_WRAPPER_SNAP_URL=$(terraform -chdir=terraform output -raw config_15_url) \
+  --env C01_BASELINE_JAVA_URL=$(terraform -chdir=terraform output -raw config_01_java_url) \
+  --env C02_SDK_JAVA_URL=$(terraform -chdir=terraform output -raw config_02_java_url) \
+  --env C03_DIRECT_JAVA_URL=$(terraform -chdir=terraform output -raw config_03_java_url) \
+  --env C04_COL_LAYER_JAVA_URL=$(terraform -chdir=terraform output -raw config_04_java_url) \
+  --env C05_EXT_COL_JAVA_URL=$(terraform -chdir=terraform output -raw config_05_java_url) \
+  --env C06_METRICS_JAVA_URL=$(terraform -chdir=terraform output -raw config_06_java_url) \
+  --env C07_TRACES_JAVA_URL=$(terraform -chdir=terraform output -raw config_07_java_url) \
+  --env C08_128MB_JAVA_URL=$(terraform -chdir=terraform output -raw config_08_java_url) \
+  --env C09_1024MB_JAVA_URL=$(terraform -chdir=terraform output -raw config_09_java_url) \
+  --env C10_SNAPSTART_JAVA_URL=$(terraform -chdir=terraform output -raw config_10_java_url) \
+  --env C11_DIRECT_SNAP_JAVA_URL=$(terraform -chdir=terraform output -raw config_11_java_url) \
+  --env C12_FAST_STARTUP_JAVA_URL=$(terraform -chdir=terraform output -raw config_12_java_url) \
+  --env C13_JAVA_WRAPPER_JAVA_URL=$(terraform -chdir=terraform output -raw config_13_java_url) \
+  --env C14_FAST_SNAP_JAVA_URL=$(terraform -chdir=terraform output -raw config_14_java_url) \
+  --env C15_WRAPPER_SNAP_JAVA_URL=$(terraform -chdir=terraform output -raw config_15_java_url) \
   k6/benchmark-with-scenarios.js
 ```
 
-Or to just run a subset:
+Run the benchmark test for all Python configs (18m duration, 24 VUh approx.):
 
 ```bash
 k6 cloud run \
   --env NAME_PREFIX=$(terraform -chdir=terraform output -raw name_prefix) \
-  --env C03_DIRECT_URL=$(terraform -chdir=terraform output -raw config_3_url) \
+  --env C01_BASELINE_PYTHON_URL=$(terraform -chdir=terraform output -raw config_01_python_url) \
+  --env C02_SDK_PYTHON_URL=$(terraform -chdir=terraform output -raw config_02_python_url) \
+  --env C03_DIRECT_PYTHON_URL=$(terraform -chdir=terraform output -raw config_03_python_url) \
+  --env C04_COL_LAYER_PYTHON_URL=$(terraform -chdir=terraform output -raw config_04_python_url) \
+  --env C05_EXT_COL_PYTHON_URL=$(terraform -chdir=terraform output -raw config_05_python_url) \
+  --env C06_METRICS_PYTHON_URL=$(terraform -chdir=terraform output -raw config_06_python_url) \
+  --env C07_TRACES_PYTHON_URL=$(terraform -chdir=terraform output -raw config_07_python_url) \
+  --env C08_128MB_PYTHON_URL=$(terraform -chdir=terraform output -raw config_08_python_url) \
+  --env C09_1024MB_PYTHON_URL=$(terraform -chdir=terraform output -raw config_09_python_url) \
   k6/benchmark-with-scenarios.js
 ```
 
-Or, if you'd rather run it locally, but publish the results to your Grafana Cloud k6 project:
+Run a cross-language comparison (just the baseline and full-instrumentation configs) (9m duration, 10 VUh approx.):
+
+```bash
+k6 cloud run \
+  --env NAME_PREFIX=$(terraform -chdir=terraform output -raw name_prefix) \
+  --env C01_BASELINE_JAVA_URL=$(terraform -chdir=terraform output -raw config_01_java_url) \
+  --env C04_COL_LAYER_JAVA_URL=$(terraform -chdir=terraform output -raw config_04_java_url) \
+  --env C01_BASELINE_PYTHON_URL=$(terraform -chdir=terraform output -raw config_01_python_url) \
+  --env C04_COL_LAYER_PYTHON_URL=$(terraform -chdir=terraform output -raw config_04_python_url) \
+  k6/benchmark-with-scenarios.js
+```
+
+Or, to run locally but publish results to Grafana Cloud k6, use the `--local-execution` flag:
 
 ```bash
 k6 cloud run --local-execution \
   --env NAME_PREFIX=$(terraform -chdir=terraform output -raw name_prefix) \
-  --env C01_BASELINE_URL=$(terraform -chdir=terraform output -raw config_1_url) \
-  --env C02_SDK_URL=$(terraform -chdir=terraform output -raw config_2_url) \
-  --env C03_DIRECT_URL=$(terraform -chdir=terraform output -raw config_3_url) \
-  --env C04_COL_LAYER_URL=$(terraform -chdir=terraform output -raw config_4_url) \
-  --env C05_EXT_COL_URL=$(terraform -chdir=terraform output -raw config_5_url) \
-  --env C06_METRICS_URL=$(terraform -chdir=terraform output -raw config_6_url) \
-  --env C07_TRACES_URL=$(terraform -chdir=terraform output -raw config_7_url) \
-  --env C08_128MB_URL=$(terraform -chdir=terraform output -raw config_8_url) \
-  --env C09_1024MB_URL=$(terraform -chdir=terraform output -raw config_9_url) \
-  --env C10_SNAPSTART_URL=$(terraform -chdir=terraform output -raw config_10_url) \
-  --env C11_DIRECT_SNAP_URL=$(terraform -chdir=terraform output -raw config_11_url) \
-  --env C12_FAST_STARTUP_URL=$(terraform -chdir=terraform output -raw config_12_url) \
-  --env C13_JAVA_WRAPPER_URL=$(terraform -chdir=terraform output -raw config_13_url) \
-  --env C14_FAST_SNAP_URL=$(terraform -chdir=terraform output -raw config_14_url) \
-  --env C15_WRAPPER_SNAP_URL=$(terraform -chdir=terraform output -raw config_15_url) \
+  --env C01_BASELINE_JAVA_URL=$(terraform -chdir=terraform output -raw config_01_java_url) \
+  --env C01_BASELINE_PYTHON_URL=$(terraform -chdir=terraform output -raw config_01_python_url) \
   k6/benchmark-with-scenarios.js
 ```
-
-### Run all load tests
-
-Run k6 to test each config in turn:
-
-```shell
-./k6/run-all.sh
-```
-
-### Run a single load test
-
-Just the Lambda SnapStart-enabled variants:
-
-```bash
-k6 cloud run \
-  --env NAME_PREFIX=$(terraform -chdir=terraform output -raw name_prefix) \
-  --env C10_SNAPSTART_URL=$(terraform -chdir=terraform output -raw config_10_url) \
-  --env C11_DIRECT_SNAP_URL=$(terraform -chdir=terraform output -raw config_11_url) \
-  k6/benchmark-with-scenarios.js
-```
-
-The traces-only, 1024MB, Fast Startup and Java Wrapper variants:
-
-```bash
-k6 cloud run \
-  --env NAME_PREFIX=$(terraform -chdir=terraform output -raw name_prefix) \
-  --env C07_TRACES_URL=$(terraform -chdir=terraform output -raw config_7_url) \
-  --env C09_1024MB_URL=$(terraform -chdir=terraform output -raw config_9_url) \
-  --env C12_FAST_STARTUP_URL=$(terraform -chdir=terraform output -raw config_12_url) \
-  --env C13_JAVA_WRAPPER_URL=$(terraform -chdir=terraform output -raw config_13_url) \
-  --env C14_FAST_SNAP_URL=$(terraform -chdir=terraform output -raw config_14_url) \
-  --env C15_WRAPPER_SNAP_URL=$(terraform -chdir=terraform output -raw config_15_url) \
-  k6/benchmark-with-scenarios.js
-```
-
-Test config 1 (the baseline):
-
-```bash
-FUNCTION_URL=$(terraform -chdir=terraform output -raw config_1_url) \
-CONFIG_NAME=c01-baseline \
-k6 run k6/benchmark.js
-```
-
-Test config 2:
-
-```bash
-FUNCTION_URL=$(terraform -chdir=terraform output -raw config_2_url) \
-CONFIG_NAME=c02-sdk \
-k6 run k6/benchmark.js
-```
-
-Test config 3:
-
-```shell
-FUNCTION_URL=$(terraform -chdir=terraform output -raw config_3_url) \
-CONFIG_NAME=c03-direct \
-k6 run k6/benchmark.js
-```
-
-Each run produces CSV output in `k6/results/`.
 
 ### Test a function manually
 
-```sh
-aws lambda invoke --region us-east-1 --function-name otel-bench-c01-baseline --payload '{}' /tmp/lambda-response.json 2>&1 && cat /tmp/lambda-response.json
+You can also send a single test request to each function individually using the AWS CLI:
+
+```bash
+aws lambda invoke \
+  --region us-east-1 \
+  --function-name otel-bench-c01-baseline-java \
+  --payload '{}' /tmp/lambda-response.json 2>&1 && cat /tmp/lambda-response.json
 ```
 
-Scenario 3:
+And for Python:
 
-```shell
-aws lambda invoke --region us-east-1 --function-name otel-bench-c03-direct --payload '{}' /tmp/lambda-response.json 2>&1 && cat /tmp/lambda-response.json
+```bash
+aws lambda invoke \
+  --region us-east-1 \
+  --function-name otel-bench-c01-baseline-python \
+  --payload '{}' /tmp/lambda-response.json 2>&1 && cat /tmp/lambda-response.json
 ```
 
-Scenario 4:
+Test a Python function which ships directly via OTLP:
 
-```shell
-aws lambda invoke --region us-east-1 --function-name otel-bench-c04-col-layer --payload '{}' /tmp/lambda-response.json 2>&1 && cat /tmp/lambda-response.json
+```bash
+aws lambda invoke \
+  --region us-east-1 \
+  --function-name otel-bench-c03-direct-python \
+  --payload '{}' /tmp/lambda-response.json 2>&1 && cat /tmp/lambda-response.json
 ```
 
-Scenario 5:
+## Interpret the test results
 
-```shell
-aws lambda invoke --region us-east-1 --function-name otel-bench-c05-ext-col --payload '{}' /tmp/lambda-response.json 2>&1 && cat /tmp/lambda-response.json
+### Locally
+
+If you've run the tests entirely locally, then you'll find a CSV of results inside `k6/results` which includes metrics for latency of cold vs warm requests, passing/failing requests and so on.
+
+Example first few lines of the results CSV:
+
+```csv
+config,language,metric,stat,value
+otel-bench-c01-baseline-java,java,cold_start_duration_ms,med,1457.831732
+otel-bench-c01-baseline-java,java,cold_start_duration_ms,max,1737.849357
+otel-bench-c01-baseline-java,java,cold_start_duration_ms,p(90),1684.9525899999999
+otel-bench-c01-baseline-java,java,cold_start_duration_ms,p(95),1728.3153255
+otel-bench-c01-baseline-java,java,cold_start_duration_ms,p(99),1735.9425507
+otel-bench-c01-baseline-java,java,cold_start_duration_ms,count,16
+otel-bench-c01-baseline-java,java,cold_start_duration_ms,avg,1413.679725
+otel-bench-c01-baseline-java,java,cold_start_duration_ms,min,647.774205
+...
 ```
 
-Scenario 6:
+### Visualise test results & CloudWatch metrics in Grafana Cloud (optional)
 
-```shell
-aws lambda invoke --region us-east-1 --function-name otel-bench-c06-metrics --payload '{}' /tmp/lambda-response.json 2>&1 && cat /tmp/lambda-response.json
-```
+This repo includes a dashboard which visualises the Grafana Cloud k6 test results and CloudWatch Lambda metrics side-by-side, so that you can compare how each scenario impacts both the client experience and your infrastructure metrics.
 
-Scenario 7:
+**NOTE: To see the test results in Grafana Cloud, you will need to run the load tests using `k6 cloud run` or `k6 cloud run --local-execution`.**
 
-```shell
-aws lambda invoke --region us-east-1 --function-name otel-bench-c07-traces --payload '{}' /tmp/lambda-response.json 2>&1 && cat /tmp/lambda-response.json
-```
+#### Set up AWS CloudWatch data source
 
-Scenario 8 - fails with timeout:
-
-```shell
-aws lambda invoke --region us-east-1 --function-name otel-bench-c08-128mb --payload '{}' /tmp/lambda-response.json 2>&1 && cat /tmp/lambda-response.json
-```
-
-Scenario 9:
-
-```shell
-aws lambda invoke --region us-east-1 --function-name otel-bench-c09-1024mb --payload '{}' /tmp/lambda-response.json 2>&1 && cat /tmp/lambda-response.json
-```
-
-Scenario 10:
-
-```shell
-aws lambda invoke --region us-east-1 --function-name otel-bench-c10-snapstart --payload '{}' /tmp/lambda-response.json 2>&1 && cat /tmp/lambda-response.json
-```
-
-Scenario 11:
-
-```shell
-aws lambda invoke --region us-east-1 --function-name otel-bench-c11-direct-snap --payload '{}' /tmp/lambda-response.json 2>&1 && cat /tmp/lambda-response.json
-```
-
-## Observe the results in Grafana
-
-All functions have CloudWatch Lambda Insights enabled. Metrics are available in CloudWatch under the `LambdaInsights` namespace, so we'll set up the CloudWatch data source in Grafana.
-
-### Set up AWS CloudWatch data source and install dashboard
+All functions have CloudWatch Lambda Insights enabled. Metrics are available in
+CloudWatch under the `LambdaInsights` namespace, so we'll set up the CloudWatch
+data source in Grafana.
 
 Get the generated access key and secret:
 
-```shell
-terraform -chdir=terraform output grafana_cloudwatch_access_key_id
-
+```bash
+terraform -chdir=terraform output -raw grafana_cloudwatch_access_key_id
 terraform -chdir=terraform output -raw grafana_cloudwatch_secret
 ```
 
@@ -285,21 +284,40 @@ In Grafana:
 4. Set **Default region** to `us-east-1`.
 5. Click **Save & test** — you should see "Data source is working".
 
-Then, install the sample dashboard (./dashboard.json).
+#### Install the dashboard
 
-### Access the dashboard
+Upload the sample dashboard (`./dashboard.json`) to your Grafana Cloud instance.
 
-Open the dashboard, then, in the variable dropdowns, select your k6 Project, test and test run, to see correlated client-side request metrics for each variant, from the k6 test you ran above.
+#### Use the dashboard
+
+Open the dashboard, then:
+
+- Select your CloudWatch data source from the variable dropdowns
+- Select your k6 Project, test and test run to see correlated client-side request metrics. 
+- Use the `language` tag to filter by runtime, or the `config` tag to drill into a specific variant.
 
 ## Architecture
 
 ### Lambda Layer collector
 
-Config 4, 6, 7, 8, 9, 10 use the OTel Collector running as a Lambda Extension (via the ADOT collector layer). The function sends OTLP HTTP to `localhost:4318`; the extension forwards to Grafana Cloud.
+Configs c04, c06, c07, c08, c09, c10 (Java) and c04, c06, c07, c08, c09 (Python)
+use the OTel Collector running as a Lambda Extension (via the ADOT collector
+layer). The function sends OTLP HTTP to `localhost:4318`; the extension forwards
+to Grafana Cloud.
 
 ### External ECS collector
 
-Config 5 deploys a standalone `otel/opentelemetry-collector-contrib` container on ECS Fargate behind a Network Load Balancer. The Lambda sends OTLP HTTP to the NLB's public DNS. This models the pattern where customers run their own internal collectors before pushing to an external observability platform (Grafana Cloud!).
+Config c05 deploys a standalone `otel/opentelemetry-collector-contrib` container
+on ECS Fargate behind a Network Load Balancer. The Lambda sends OTLP HTTP to
+the NLB's public DNS. This models the pattern where customers run their own
+internal collectors before pushing to an external observability platform.
+
+### Python instrumentation
+
+Python configs use the AWS ADOT Python Lambda layer, which injects
+instrumentation via `AWS_LAMBDA_EXEC_WRAPPER=/opt/otel-instrument`. The
+function code itself has no OTel imports — instrumentation is entirely
+layer-controlled, mirroring how the Java ADOT agent works.
 
 ## Status
 
@@ -307,24 +325,40 @@ Check what's actually deployed:
 
 ```bash
 aws sso login --sso-session SESSION
-
 export AWS_PROFILE=...
-```
-
-```bash
 terraform -chdir=terraform state list
 ```
 
 ## Teardown
 
-Delete the Lambda infrastructure:
-
 ```bash
-terraform -chdir=terraform destroy 
+terraform -chdir=terraform destroy
 ```
 
 ## Architectural decisions
 
 - **k6 tests are organised into scenarios:** so we can view all the results using a single query on a dashboard
 - **each k6 scenario runs in sequence:** so that we avoid any doubt around resource contention between Lambda functions (there shouldn't be any, but this just makes sure of it)
+- **language tag on every metric:** enables cross-language comparison in Grafana without needing separate test runs
 
+## Sample results
+
+All durations are p95, measured by k6 from the client side.
+
+| #   | Config                             | Cold Start P95 — Java | Cold Start P95 — Python | Warm P95 — Java | Warm P95 — Python |
+|-----|------------------------------------|-----------------------|-------------------------|-----------------|-------------------|
+| c01 | Baseline (no instrumentation)      | —                     | 322 ms                  | —               | 52.5 ms           |
+| c02 | OTel SDK, no export                | —                     | 1,570 ms                | —               | 53.8 ms           |
+| c03 | Direct OTLP export                 | —                     | 3,060 ms                | —               | 1,260 ms          |
+| c04 | Collector Lambda Layer             | —                     | 2,270 ms                | —               | 59.6 ms           |
+| c05 | External ECS Collector (VPC)       | —                     | 1,840 ms                | —               | 105 ms            |
+| c06 | Metrics only (Collector Layer)     | —                     | 2,200 ms                | —               | 56.1 ms           |
+| c07 | Traces only (Collector Layer)      | —                     | 2,190 ms                | —               | 56.8 ms           |
+| c08 | 128 MB memory (Collector Layer)    | —                     | 4,380 ms                | —               | 291 ms            |
+| c09 | 1024 MB memory (Collector Layer)   | —                     | 2,220 ms                | —               | 58.6 ms           |
+| c10 | SnapStart (Collector Layer)        | —                     | n/a                     | —               | n/a               |
+| c11 | SnapStart + Direct OTLP            | —                     | n/a                     | —               | n/a               |
+| c12 | Agent Fast Start (Collector Layer) | —                     | n/a                     | —               | n/a               |
+| c13 | Java Wrapper (Collector Layer)     | —                     | n/a                     | —               | n/a               |
+| c14 | Agent Fast Start + SnapStart       | —                     | n/a                     | —               | n/a               |
+| c15 | Java Wrapper + SnapStart           | —                     | n/a                     | —               | n/a               |
