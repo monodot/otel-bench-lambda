@@ -1,22 +1,24 @@
 # AWS Lambda OpenTelemetry instrumentation benchmark
 
-Benchmarking the latency cost of adding OpenTelemetry instrumentation to Lambda functions in multiple languages, shipping telemetry to an external observability platform via OTLP.
+Benchmarking the latency cost of adding OpenTelemetry instrumentation to Lambda functions in two different languages, both of them shipping telemetry to an external observability platform, via OTLP.
 
-Includes an optional dashboard for Grafana Cloud, to visualise k6 test results and CloudWatch metrics together:
+Includes an optional dashboard for Grafana Cloud, to visualise Grafana Cloud k6 test results and CloudWatch metrics together:
 
 ![](./dashboard.jpg)
 
-## Summary of findings
-
-- Placing a Lambda in a VPC (so it can access a private otel-collector instance) can add significant latency to cold start times, due to the work required in setting up the network interface. [See Yan Cui's blog.](https://theburningmonk.com/2018/01/im-afraid-youre-thinking-about-aws-lambda-cold-starts-all-wrong/) 
+(light mode rules IDST)
 
 ## What it measures
 
-A mock JWT-validation function (~25 ms of real work) is deployed in multiple variants that vary in instrumentation depth, exporter destination, memory allocated, and (for Java) whether SnapStart or Agent Fast Start are enabled. The same config matrix is deployed for each active language, so you can compare cold-start and warm latencies between different runtimes.
+We deploy a mock JWT-validation Lambda function (~25 ms of real work) is deployed in multiple variants, which vary in instrumentation depth, exporter destination, memory allocated, and (for Java) whether SnapStart or Agent Fast Start are enabled. 
+
+The same set of variations are deployed for each active language (if applicable), so you can compare cold-start and warm latencies between different runtimes.
 
 We use [k6](https://k6.io/) to load test each variant, to capture cold-start and warm p50/p99 latencies. The results are tagged by `config` (full function name) and `language` so you can slice any way you like in Grafana.
 
 ### Configs
+
+The tests comprise the following scenarios or configurations. Each of them varies in export destination, which signals are enabled, memory, SnapStart and so on:
 
 | #   | Export target                   | OTel Instrumentation | Memory  | SnapStart | Java | Python |
 |-----|---------------------------------|----------------------|---------|-----------|------|--------|
@@ -36,6 +38,11 @@ We use [k6](https://k6.io/) to load test each variant, to capture cold-start and
 | c14 | Collector Lambda Layer          | Full (fast startup)  | 512 MB  | On        | ✓    | —      |
 | c15 | Collector Lambda Layer          | Full (Java wrapper)  | 512 MB  | On        | ✓    | —      |
 
+Notes:
+
+- c01 and c02 exist to just establish a baseline - they do not export any telemetry.
+- For Java: _Fast startup_ refers to the `OTEL_JAVA_AGENT_FAST_STARTUP_ENABLED` setting. _Java Wrapper_ refers to using the wrapper Lambda layer (instead of the Java Agent Lambda layer).
+
 ## Prerequisites
 
 - [AWS CLI](https://aws.amazon.com/cli/) configured with credentials for your target account
@@ -43,7 +50,7 @@ We use [k6](https://k6.io/) to load test each variant, to capture cold-start and
 - Java 21 + Maven (required to build the Java function)
 - Python 3.13 + zip (required to build the Python function)
 - [k6](https://k6.io/)
-- An external OTLP endpoint, to ship telemetry signals to. If you don't have access to one, you can deploy https://github.com/grafana/docker-otel-lgtm (not in scope for this repo)
+- An external OTLP endpoint, to ship telemetry signals to. If you don't have access to one, you can deploy https://github.com/grafana/docker-otel-lgtm somewhere accessible by the function (not in scope for this repo)
 - Grafana Cloud account (optional) - if you want to visualise the k6 test results and CloudWatch metrics together
 
 ## Deploy the function variants
@@ -131,7 +138,7 @@ Head to your Grafana Cloud instance > Testing and synthetics > Performance > Set
 k6 cloud login -t TOKEN --stack SLUG
 ```
 
-Run the benchmark test for all Java configs (30m duration):
+Run the benchmark test for all Java configs (30m duration, 40 VUh approx.):
 
 ```bash
 k6 cloud run \
@@ -329,22 +336,29 @@ terraform -chdir=terraform destroy
 
 ## Sample results
 
-All durations are p95, measured by k6 from the client side.
+This test was run on **2026-04-06**. All durations are p95, measured by k6 from the client side.
 
-| #   | Config                             | Cold Start P95 — Java | Cold Start P95 — Python | Warm P95 — Java | Warm P95 — Python |
-|-----|------------------------------------|-----------------------|-------------------------|-----------------|-------------------|
-| c01 | Baseline (no instrumentation)      | —                     | 322 ms                  | —               | 52.5 ms           |
-| c02 | OTel SDK, no export                | —                     | 1,570 ms                | —               | 53.8 ms           |
-| c03 | Direct OTLP export                 | —                     | 3,060 ms                | —               | 1,260 ms          |
-| c04 | Collector Lambda Layer             | —                     | 2,270 ms                | —               | 59.6 ms           |
-| c05 | External ECS Collector (VPC)       | —                     | 1,840 ms                | —               | 105 ms            |
-| c06 | Metrics only (Collector Layer)     | —                     | 2,200 ms                | —               | 56.1 ms           |
-| c07 | Traces only (Collector Layer)      | —                     | 2,190 ms                | —               | 56.8 ms           |
-| c08 | 128 MB memory (Collector Layer)    | —                     | 4,380 ms                | —               | 291 ms            |
-| c09 | 1024 MB memory (Collector Layer)   | —                     | 2,220 ms                | —               | 58.6 ms           |
-| c10 | SnapStart (Collector Layer)        | —                     | n/a                     | —               | n/a               |
-| c11 | SnapStart + Direct OTLP            | —                     | n/a                     | —               | n/a               |
-| c12 | Agent Fast Start (Collector Layer) | —                     | n/a                     | —               | n/a               |
-| c13 | Java Wrapper (Collector Layer)     | —                     | n/a                     | —               | n/a               |
-| c14 | Agent Fast Start + SnapStart       | —                     | n/a                     | —               | n/a               |
-| c15 | Java Wrapper + SnapStart           | —                     | n/a                     | —               | n/a               |
+| #   | Config                             | Cold Start P95 — Java | Warm P95 — Java | Cold Start P95 — Python | Warm P95 — Python |
+|-----|------------------------------------|-----------------------|-----------------|-------------------------|-------------------|
+| c01 | Baseline (no instrumentation)      | 1,730 ms              | 54.0 ms         | 322 ms                  | 52.5 ms           |
+| c02 | OTel SDK, no export                | 5,920 ms              | 54.5 ms         | 1,570 ms                | 53.8 ms           |
+| c03 | Direct OTLP export                 | 9,440 ms              | 668 ms          | 3,060 ms                | 1,260 ms          |
+| c04 | Collector Lambda Layer             | 7,910 ms              | 78.8 ms         | 2,270 ms                | 59.6 ms           |
+| c05 | External ECS Collector (VPC)       | 7,500 ms              | 206 ms          | 1,840 ms                | 105 ms            |
+| c06 | Metrics only (Collector Layer)     | 7,680 ms              | 67.6 ms         | 2,200 ms                | 56.1 ms           |
+| c07 | Traces only (Collector Layer)      | 7,520 ms              | 60.9 ms         | 2,190 ms                | 56.8 ms           |
+| c08 | 128 MB memory (Collector Layer)    | TIMEOUT               | TIMEOUT         | 4,380 ms                | 291 ms            |
+| c09 | 1024 MB memory (Collector Layer)   | 6,860 ms              | 59.4 ms         | 2,220 ms                | 58.6 ms           |
+| c10 | SnapStart (Collector Layer)        | 3,540 ms              | 73.2 ms         | n/a                     | n/a               |
+| c11 | SnapStart + Direct OTLP            | 5,000 ms              | 672 ms          | n/a                     | n/a               |
+| c12 | Agent Fast Start (Collector Layer) | 7,500 ms              | 77.3 ms         | n/a                     | n/a               |
+| c13 | Java Wrapper (Collector Layer)     | 4,370 ms              | 69.1 ms         | n/a                     | n/a               |
+| c14 | Agent Fast Start + SnapStart       | 3,720 ms              | 70.7 ms         | n/a                     | n/a               |
+| c15 | Java Wrapper + SnapStart           | 3,230 ms              | 68.1 ms         | n/a                     | n/a               |
+
+### Summary of findings
+
+- Python is far more performant than Java
+- Direct export to an external OTLP endpoint (without a collector) is often the slowest
+- Placing a Lambda in a VPC (so it can access a private otel-collector instance) can add latency to cold start times, due to the work required in setting up the network interface. [See Yan Cui's blog.](https://theburningmonk.com/2018/01/im-afraid-youre-thinking-about-aws-lambda-cold-starts-all-wrong/) 
+- Setting memory to an artificially low value (e.g. 128Mb) slows down performance. So, don't do that :)
