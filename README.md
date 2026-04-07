@@ -1,5 +1,7 @@
 # AWS Lambda OpenTelemetry instrumentation benchmark
 
+![License](https://img.shields.io/badge/license-Apache%202.0-blue) ![OpenTelemetry](https://img.shields.io/badge/OpenTelemetry-instrumented-blueviolet?logo=opentelemetry) ![AWS Lambda](https://img.shields.io/badge/AWS-Lambda-orange?logo=amazon-aws) ![k6](https://img.shields.io/badge/load%20testing-k6-7D64FF?logo=k6)
+
 Benchmarking the latency cost of adding OpenTelemetry instrumentation to Lambda functions in two different languages, both of them shipping telemetry to an external observability platform, via OTLP.
 
 Includes an optional dashboard for Grafana Cloud, to visualise Grafana Cloud k6 test results and CloudWatch metrics together:
