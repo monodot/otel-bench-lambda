@@ -169,6 +169,12 @@ variable "vpc_security_group_ids" {
   default     = null
 }
 
+variable "extra_env_vars" {
+  description = "Additional environment variables merged into the Lambda function's environment. Applied last, so these override any computed values."
+  type        = map(string)
+  default     = {}
+}
+
 variable "tags" {
   type    = map(string)
   default = {}

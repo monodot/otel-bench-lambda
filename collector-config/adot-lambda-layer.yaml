@@ -1,0 +1,36 @@
+# OTel Collector config for the AWS ADOT bundled collector (aws-otel-java-wrapper-*).
+#
+# Uses 'otlphttp' exporter (not 'otlp_http') for compatibility with the ADOT
+# bundled collector v0.117.0.
+#
+# IMPORTANT: The batch processor is NOT compiled into this collector binary.
+# Pipelines must go receiver → exporter directly with no processors.
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: localhost:4317
+      http:
+        endpoint: localhost:4318
+
+exporters:
+  otlphttp:
+    endpoint: ${env:OTLP_ENDPOINT}
+    headers:
+      authorization: Basic ${env:OTLP_AUTH_STRING}
+
+service:
+  telemetry:
+    logs:
+      level: warn
+  pipelines:
+    traces:
+      receivers: [otlp]
+      exporters: [otlphttp]
+    metrics:
+      receivers: [otlp]
+      exporters: [otlphttp]
+    logs:
+      receivers: [otlp]
+      exporters: [otlphttp]

@@ -55,6 +55,7 @@ locals {
     local.collector_env,
     local.direct_env,
     local.direct_headers_env,
+    var.extra_env_vars,
   )
 }
 
@@ -116,7 +117,7 @@ resource "aws_lambda_function_url" "latest" {
   cors {
     allow_origins = ["*"]
     allow_methods = ["POST"]
-    allow_headers = ["content-type"]
+    allow_headers = ["Content-Type"]
     max_age       = 300
   }
 }

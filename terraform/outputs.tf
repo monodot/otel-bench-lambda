@@ -20,6 +20,10 @@ output "config_12_java_url" { value = var.deploy_java ? module.config_12_java[0]
 output "config_13_java_url" { value = var.deploy_java ? module.config_13_java[0].function_url : "" }
 output "config_14_java_url" { value = var.deploy_java ? module.config_14_java[0].function_url : "" }
 output "config_15_java_url" { value = var.deploy_java ? module.config_15_java[0].function_url : "" }
+output "config_16_java_url" { value = var.deploy_java ? module.config_16_java[0].function_url : "" }
+output "config_17_java_url" { value = var.deploy_java ? module.config_17_java[0].function_url : "" }
+output "config_18_java_url" { value = var.deploy_java && var.adot_java_wrapper_layer_arn != null ? module.config_18_java[0].function_url : "" }
+output "config_19_java_url" { value = var.deploy_java ? module.config_19_java[0].function_url : "" }
 
 # ── Python outputs (c01–c09) ──────────────────────────────────────────────────
 

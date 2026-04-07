@@ -20,27 +20,34 @@ We use [k6](https://k6.io/) to load test each variant, to capture cold-start and
 
 The tests comprise the following scenarios or configurations. Each of them varies in export destination, which signals are enabled, memory, SnapStart and so on:
 
-| #   | Export target                       | OTel Instrumentation    | Memory      | SnapStart | Java | Python |
-|-----|-------------------------------------|-------------------------|-------------|-----------|------|--------|
-| c01 | None                                | None                    | 512 MB      | Off       | ✓    | ✓      |
-| c02 | None                                | Full (no export)        | 512 MB      | Off       | ✓    | ✓      |
-| c03 | **External OTLP direct**            | Full                    | 512 MB      | Off       | ✓    | ✓      |
-| c04 | **Collector Lambda Layer**          | Full                    | 512 MB      | Off       | ✓    | ✓      |
-| c05 | **External ECS Collector (in VPC)** | Full                    | 512 MB      | Off       | ✓    | ✓      |
-| c06 | Collector Lambda Layer              | **Metrics only**        | 512 MB      | Off       | ✓    | ✓      |
-| c07 | Collector Lambda Layer              | **Traces only**         | 512 MB      | Off       | ✓    | ✓      |
-| c08 | Collector Lambda Layer              | Full                    | **128 MB**  | Off       | ✓    | ✓      |
-| c09 | Collector Lambda Layer              | Full                    | **1024 MB** | Off       | ✓    | ✓      |
-| c10 | Collector Lambda Layer              | Full                    | 512 MB      | **On**    | ✓    | —      |
-| c11 | **External OTLP direct**            | Full                    | 512 MB      | **On**    | ✓    | —      |
-| c12 | Collector Lambda Layer              | **Full (fast startup)** | 512 MB      | Off       | ✓    | —      |
-| c13 | Collector Lambda Layer              | **Full (Java wrapper)** | 512 MB      | Off       | ✓    | —      |
-| c14 | Collector Lambda Layer              | Full (fast startup)     | 512 MB      | **On**    | ✓    | —      |
-| c15 | Collector Lambda Layer              | Full (Java wrapper)     | 512 MB      | **On**    | ✓    | —      |
+| #   | Export target                       | OTel Instrumentation                    | Memory      | SnapStart | Java | Python |
+|-----|-------------------------------------|-----------------------------------------|-------------|-----------|------|--------|
+| c01 | None                                | None                                    | 512 MB      | Off       | ✓    | ✓      |
+| c02 | None                                | **Agent loaded, all exporters disabled**| 512 MB      | Off       | ✓    | ✓      |
+| c03 | **External OTLP direct**            | Full (Java agent)                       | 512 MB      | Off       | ✓    | ✓      |
+| c04 | **Collector Lambda Layer**          | Full (Java agent)                       | 512 MB      | Off       | ✓    | ✓      |
+| c05 | **External ECS Collector (in VPC)** | Full (Java agent)                       | 512 MB      | Off       | ✓    | ✓      |
+| c06 | Collector Lambda Layer              | **Metrics only** (Java agent)           | 512 MB      | Off       | ✓    | ✓      |
+| c07 | Collector Lambda Layer              | **Traces only** (Java agent)            | 512 MB      | Off       | ✓    | ✓      |
+| c08 | Collector Lambda Layer              | Full (Java agent)                       | **128 MB**  | Off       | ✓    | ✓      |
+| c09 | Collector Lambda Layer              | Full (Java agent)                       | **1024 MB** | Off       | ✓    | ✓      |
+| c10 | Collector Lambda Layer              | Full (Java agent)                       | 512 MB      | **On**    | ✓    | —      |
+| c11 | **External OTLP direct**            | Full (Java agent)                       | 512 MB      | **On**    | ✓    | —      |
+| c12 | Collector Lambda Layer              | **Full (fast startup)** (Java agent)    | 512 MB      | Off       | ✓    | —      |
+| c13 | Collector Lambda Layer              | **Full (Java wrapper layer)**           | 512 MB      | Off       | ✓    | —      |
+| c14 | Collector Lambda Layer              | Full, fast startup (Java agent)         | 512 MB      | **On**    | ✓    | —      |
+| c15 | Collector Lambda Layer              | Full (Java wrapper layer)               | 512 MB      | **On**    | ✓    | —      |
+| c16 | **Collector Lambda Layer**          | **Full (programmatic SDK)**             | 512 MB      | Off       | ✓    | —      |
+| c17 | Collector Lambda Layer              | Full (programmatic SDK)                 | 512 MB      | **On**    | ✓    | —      |
+| c18 | **AWS ADOT layer (bundled)**        | **Full (AWS ADOT Java wrapper)**        | 512 MB      | **On**    | ✓    | —      |
+| c19 | Collector Lambda Layer              | **Selective (Lambda + SDK only)**       | 512 MB      | Off       | ✓    | —      |
 
 Notes:
 
-- c01 and c02 exist to just establish a baseline - they do not export any telemetry.
+- c01 and c02 exist to establish a baseline. c02 loads the Java/Python agent but sets all exporters to `none`, isolating the cost of agent initialisation from the cost of exporting telemetry.
+- c16 and c17 use a programmatic OTel SDK initialisation (no agent layer) as a foundation for fixing the known SnapStart + OTel missing-traces issue. c17 is expected to show the same trace loss as c10/c11/c14/c15 until CRaC hooks are added in a future scenario.
+- c18 uses the AWS-managed ADOT Java wrapper layer (`aws-otel-java-wrapper-amd64-ver-*`), which bundles both the Java wrapper instrumentation and an OTel Collector in a single layer. Directly comparable to c15.
+- c19 uses the Java agent but disables all auto-instrumentation by default (`OTEL_INSTRUMENTATION_COMMON_DEFAULT_ENABLED=false`), re-enabling only `OTEL_INSTRUMENTATION_AWS_LAMBDA_ENABLED` and `OTEL_INSTRUMENTATION_AWS_SDK_ENABLED`. Directly comparable to c04 — tests whether pruning unused instrumentations reduces cold-start overhead.
 - For Java: _Fast startup_ refers to the `OTEL_JAVA_AGENT_FAST_STARTUP_ENABLED` setting. _Java Wrapper_ refers to using the wrapper Lambda layer (instead of the Java Agent Lambda layer).
 
 ## Prerequisites
@@ -144,7 +151,7 @@ Run the benchmark test for all Java configs (30m duration, 40 VUh approx.):
 k6 cloud run \
   --env NAME_PREFIX=$(terraform -chdir=terraform output -raw name_prefix) \
   --env C01_BASELINE_JAVA_URL=$(terraform -chdir=terraform output -raw config_01_java_url) \
-  --env C02_SDK_JAVA_URL=$(terraform -chdir=terraform output -raw config_02_java_url) \
+  --env C02_AGENT_NOOP_JAVA_URL=$(terraform -chdir=terraform output -raw config_02_java_url) \
   --env C03_DIRECT_JAVA_URL=$(terraform -chdir=terraform output -raw config_03_java_url) \
   --env C04_COL_LAYER_JAVA_URL=$(terraform -chdir=terraform output -raw config_04_java_url) \
   --env C05_EXT_COL_JAVA_URL=$(terraform -chdir=terraform output -raw config_05_java_url) \
@@ -158,6 +165,10 @@ k6 cloud run \
   --env C13_JAVA_WRAPPER_JAVA_URL=$(terraform -chdir=terraform output -raw config_13_java_url) \
   --env C14_FAST_SNAP_JAVA_URL=$(terraform -chdir=terraform output -raw config_14_java_url) \
   --env C15_WRAPPER_SNAP_JAVA_URL=$(terraform -chdir=terraform output -raw config_15_java_url) \
+  --env C16_PROG_SDK_JAVA_URL=$(terraform -chdir=terraform output -raw config_16_java_url) \
+  --env C17_PROG_SDK_SNAP_JAVA_URL=$(terraform -chdir=terraform output -raw config_17_java_url) \
+  --env C18_ADOT_SNAP_JAVA_URL=$(terraform -chdir=terraform output -raw config_18_java_url) \
+  --env C19_SELECTIVE_INSTR_JAVA_URL=$(terraform -chdir=terraform output -raw config_19_java_url) \
   k6/benchmark-with-scenarios.js
 ```
 
@@ -167,7 +178,7 @@ Run the benchmark test for all Python configs (18m duration, 24 VUh approx.):
 k6 cloud run \
   --env NAME_PREFIX=$(terraform -chdir=terraform output -raw name_prefix) \
   --env C01_BASELINE_PYTHON_URL=$(terraform -chdir=terraform output -raw config_01_python_url) \
-  --env C02_SDK_PYTHON_URL=$(terraform -chdir=terraform output -raw config_02_python_url) \
+  --env C02_AGENT_NOOP_PYTHON_URL=$(terraform -chdir=terraform output -raw config_02_python_url) \
   --env C03_DIRECT_PYTHON_URL=$(terraform -chdir=terraform output -raw config_03_python_url) \
   --env C04_COL_LAYER_PYTHON_URL=$(terraform -chdir=terraform output -raw config_04_python_url) \
   --env C05_EXT_COL_PYTHON_URL=$(terraform -chdir=terraform output -raw config_05_python_url) \
@@ -188,6 +199,51 @@ k6 cloud run \
   --env C01_BASELINE_PYTHON_URL=$(terraform -chdir=terraform output -raw config_01_python_url) \
   --env C04_COL_LAYER_PYTHON_URL=$(terraform -chdir=terraform output -raw config_04_python_url) \
   k6/benchmark-with-scenarios.js
+```
+
+Just the SnapStart variants:
+
+```shell
+k6 cloud run \
+  --env NAME_PREFIX=$(terraform -chdir=terraform output -raw name_prefix) \
+  --env C10_SNAPSTART_JAVA_URL=$(terraform -chdir=terraform output -raw config_10_java_url) \
+  --env C11_DIRECT_SNAP_JAVA_URL=$(terraform -chdir=terraform output -raw config_11_java_url) \
+  --env C14_FAST_SNAP_JAVA_URL=$(terraform -chdir=terraform output -raw config_14_java_url) \
+  --env C15_WRAPPER_SNAP_JAVA_URL=$(terraform -chdir=terraform output -raw config_15_java_url) \
+  --env C17_PROG_SDK_SNAP_JAVA_URL=$(terraform -chdir=terraform output -raw config_17_java_url) \
+  --env C18_ADOT_SNAP_JAVA_URL=$(terraform -chdir=terraform output -raw config_18_java_url) \
+  k6/benchmark-with-scenarios.js
+```
+
+Just the programmatic SDK initialisation (with c13 as a baseline as it's got a good balance of reliability and latency):
+
+```shell
+k6 cloud run \
+  --env NAME_PREFIX=$(terraform -chdir=terraform output -raw name_prefix) \
+  --env C13_JAVA_WRAPPER_JAVA_URL=$(terraform -chdir=terraform output -raw config_13_java_url) \
+  --env C16_PROG_SDK_JAVA_URL=$(terraform -chdir=terraform output -raw config_16_java_url) \
+  --env C17_PROG_SDK_SNAP_JAVA_URL=$(terraform -chdir=terraform output -raw config_17_java_url) \
+  k6/benchmark-with-scenarios.js
+```
+
+Comparing regular SnapStart with manual SDK SnapStart:
+
+```shell
+k6 cloud run \
+  --env NAME_PREFIX=$(terraform -chdir=terraform output -raw name_prefix) \
+  --env C10_SNAPSTART_JAVA_URL=$(terraform -chdir=terraform output -raw config_10_java_url) \
+  --env C17_PROG_SDK_SNAP_JAVA_URL=$(terraform -chdir=terraform output -raw config_17_java_url) \
+  k6/benchmark-with-scenarios.js
+```
+
+Comparing the standard Collector Layer with the same approach but only selective instrumentation turned on:
+
+```shell
+k6 cloud run \
+    --env NAME_PREFIX=$(terraform -chdir=terraform output -raw name_prefix) \
+    --env C04_COL_LAYER_JAVA_URL=$(terraform -chdir=terraform output -raw config_04_java_url) \
+    --env C19_SELECTIVE_INSTR_JAVA_URL=$(terraform -chdir=terraform output -raw config_19_java_url) \
+    k6/benchmark-with-scenarios.js
 ```
 
 Or, to run locally but publish results to Grafana Cloud k6, use the `--local-execution` flag:
@@ -292,10 +348,14 @@ Open the dashboard, then:
 
 ### Lambda Layer collector
 
-Configs c04, c06, c07, c08, c09, c10 (Java) and c04, c06, c07, c08, c09 (Python)
+Configs c04, c06, c07, c08, c09, c10, c16, c17 (Java) and c04, c06, c07, c08, c09 (Python)
 use the OTel Collector running as a Lambda Extension (via the ADOT collector
 layer). The function sends OTLP HTTP to `localhost:4318`; the extension forwards
 to Grafana Cloud.
+
+Config c18 also uses a bundled collector, but via the AWS-managed ADOT Java wrapper
+layer (`aws-otel-java-wrapper-amd64-ver-*`) which packages both the wrapper
+instrumentation and the collector in a single layer.
 
 ### External ECS collector
 
@@ -340,7 +400,7 @@ This test was run on **2026-04-06**. All durations are p95, measured by k6 from 
 | #   | Config                             | Cold Start P95 — Java | Warm P95 — Java | Cold Start P95 — Python | Warm P95 — Python |
 |-----|------------------------------------|-----------------------|-----------------|-------------------------|-------------------|
 | c01 | Baseline (no instrumentation)      | 1,730 ms              | 54.0 ms         | 322 ms                  | 52.5 ms           |
-| c02 | OTel SDK, no export                | 5,920 ms              | 54.5 ms         | 1,570 ms                | 53.8 ms           |
+| c02 | Agent loaded, no export            | 5,920 ms              | 54.5 ms         | 1,570 ms                | 53.8 ms           |
 | c03 | Direct OTLP export                 | 9,440 ms              | 668 ms          | 3,060 ms                | 1,260 ms          |
 | c04 | Collector Lambda Layer             | 7,910 ms              | 78.8 ms         | 2,270 ms                | 59.6 ms           |
 | c05 | External ECS Collector (VPC)       | 7,500 ms              | 206 ms          | 1,840 ms                | 105 ms            |
@@ -354,6 +414,10 @@ This test was run on **2026-04-06**. All durations are p95, measured by k6 from 
 | c13 | Java Wrapper (Collector Layer)     | 4,370 ms              | 69.1 ms         | n/a                     | n/a               |
 | c14 | Agent Fast Start + SnapStart       | 3,720 ms              | 70.7 ms         | n/a                     | n/a               |
 | c15 | Java Wrapper + SnapStart           | 3,230 ms              | 68.1 ms         | n/a                     | n/a               |
+| c16 | Programmatic SDK (no SnapStart)    | —                     | —               | n/a                     | n/a               |
+| c17 | Programmatic SDK + SnapStart       | —                     | —               | n/a                     | n/a               |
+| c18 | AWS ADOT wrapper + SnapStart       | —                     | —               | n/a                     | n/a               |
+| c19 | Selective instrumentation (Agent)  | —                     | —               | n/a                     | n/a               |
 
 ### Summary of findings
 

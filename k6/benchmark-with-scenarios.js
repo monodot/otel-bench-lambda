@@ -50,16 +50,18 @@ const coldStartCount    = new Counter('cold_start_count');
 const NAME_PREFIX = __ENV.NAME_PREFIX || 'otel-bench';
 
 const SUFFIXES = [
-    // Java — all 15 configs
-    'c01-baseline-java',    'c02-sdk-java',          'c03-direct-java',
-    'c04-col-layer-java',   'c05-ext-col-java',      'c06-metrics-java',
-    'c07-traces-java',      'c08-128mb-java',         'c09-1024mb-java',
-    'c10-snapstart-java',   'c11-direct-snap-java',  'c12-fast-startup-java',
-    'c13-java-wrapper-java','c14-fast-snap-java',    'c15-wrapper-snap-java',
+    // Java — all 16 configs
+    'c01-baseline-java',      'c02-agent-noop-java',     'c03-direct-java',
+    'c04-col-layer-java',     'c05-ext-col-java',        'c06-metrics-java',
+    'c07-traces-java',        'c08-128mb-java',           'c09-1024mb-java',
+    'c10-snapstart-java',     'c11-direct-snap-java',    'c12-fast-startup-java',
+    'c13-java-wrapper-java',  'c14-fast-snap-java',      'c15-wrapper-snap-java',
+    'c16-prog-sdk-java',      'c17-prog-sdk-snap-java',  'c18-adot-snap-java',
+    'c19-selective-instr-java',
     // Python — c01–c09 only (SnapStart / fast-startup / wrapper are Java-only)
-    'c01-baseline-python',  'c02-sdk-python',         'c03-direct-python',
-    'c04-col-layer-python', 'c05-ext-col-python',     'c06-metrics-python',
-    'c07-traces-python',    'c08-128mb-python',        'c09-1024mb-python',
+    'c01-baseline-python',    'c02-agent-noop-python',   'c03-direct-python',
+    'c04-col-layer-python',   'c05-ext-col-python',      'c06-metrics-python',
+    'c07-traces-python',      'c08-128mb-python',         'c09-1024mb-python',
 ];
 
 // c01-baseline-java → C01_BASELINE_JAVA_URL
