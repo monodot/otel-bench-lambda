@@ -55,6 +55,7 @@ locals {
     local.collector_env,
     local.direct_env,
     local.direct_headers_env,
+    var.permissions_table_name != "" ? { PERMISSIONS_TABLE_NAME = var.permissions_table_name } : {},
     var.extra_env_vars,
   )
 }
@@ -117,7 +118,7 @@ resource "aws_lambda_function_url" "latest" {
   cors {
     allow_origins = ["*"]
     allow_methods = ["POST"]
-    allow_headers = ["Content-Type"]
+    allow_headers = ["content-type"]
     max_age       = 300
   }
 }
@@ -136,7 +137,7 @@ resource "aws_lambda_function_url" "snapstart" {
   cors {
     allow_origins = ["*"]
     allow_methods = ["POST"]
-    allow_headers = ["Content-Type"]
+    allow_headers = ["content-type"]
     max_age       = 300
   }
 }

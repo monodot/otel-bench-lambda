@@ -8,8 +8,10 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Scope;
+import io.opentelemetry.instrumentation.awssdk.v2_2.AwsSdkTelemetry;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
 import io.opentelemetry.sdk.autoconfigure.AutoConfiguredOpenTelemetrySdk;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 
 import java.util.concurrent.TimeUnit;
 
@@ -21,23 +23,36 @@ import java.util.concurrent.TimeUnit;
  * as the agent, so Terraform config (exporter, endpoint, service name, etc.)
  * is unchanged from the agent-based configs.
  *
+ * The DynamoDB client is wired with AwsSdkTelemetry so that the permissions
+ * lookup in AuthzHandler produces a child span attributed with table name,
+ * request ID, HTTP status, and other aws.dynamodb.* semantic conventions.
+ * This is the library-instrumentation equivalent of what the Java agent does
+ * automatically for agent-based configs.
+ *
  * forceFlush() is called explicitly after each invocation because Lambda may
  * freeze the execution environment before the async exporter drains its queue.
- * The Java agent handles this via OTEL_INSTRUMENTATION_AWS_LAMBDA_FLUSH_TIMEOUT;
- * here we do it ourselves.
  *
- * Used by: c16-prog-sdk-snap-java
+ * Used by: c16-prog-sdk-java, c17-prog-sdk-snap-java
  */
 public class AuthzHandlerProgSdk implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HTTPResponse> {
 
     private static final OpenTelemetrySdk otelSdk;
     private static final Tracer tracer;
-
-    private final AuthzHandler delegate = new AuthzHandler();
+    private static final AuthzHandler delegate;
 
     static {
         otelSdk = AutoConfiguredOpenTelemetrySdk.initialize().getOpenTelemetrySdk();
         tracer  = otelSdk.getTracer("authz-function");
+
+        // Wire the DynamoDB client with the OTel AWS SDK interceptor so that
+        // lookupPermissions() in AuthzHandler produces a child span that carries
+        // aws.dynamodb.* semantic conventions — no agent required.
+        DynamoDbClient instrumentedDynamoDb = DynamoDbClient.builder()
+                .overrideConfiguration(c -> c.addExecutionInterceptor(
+                        AwsSdkTelemetry.create(otelSdk).createExecutionInterceptor()))
+                .build();
+
+        delegate = new AuthzHandler(instrumentedDynamoDb);
     }
 
     @Override

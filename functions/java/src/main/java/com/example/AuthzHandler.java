@@ -6,26 +6,63 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayV2HTTPEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayV2HTTPResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Base64;
+import java.util.List;
 import java.util.Map;
 
 /**
- * Mock JWT-validation function that simulates ~25 ms of real authz work.
+ * Mock JWT-validation + permissions-lookup function.
  *
- * All 11 benchmark configurations use this same JAR. Instrumentation is
- * controlled entirely via environment variables and Lambda layers — no code
- * changes needed between configs.
+ * On each invocation the handler:
+ *   1. Validates the JWT structure and runs a small SHA-256 loop to simulate
+ *      HMAC verification work (~5 ms of CPU).
+ *   2. Looks up the JWT subject in a DynamoDB permissions table, which
+ *      produces a child span when OTel instrumentation is active.
+ *   3. Pads total processing time to ~25 ms to simulate consistent authz
+ *      latency regardless of memory tier or instance type.
+ *
+ * DynamoDB client injection
+ * ─────────────────────────
+ * The default (no-arg) constructor creates a plain DynamoDbClient. For
+ * agent-based configs (c02–c15, c19) the Java agent instruments it
+ * automatically via bytecode injection.
+ *
+ * AuthzHandlerProgSdk (c16/c17) passes in a client that has been wired with
+ * the OTel AWS SDK v2 execution interceptor so that child spans are emitted
+ * even without the agent.
+ *
+ * All 19 benchmark configurations share this JAR. Instrumentation is
+ * controlled entirely via environment variables and Lambda layers.
  */
 public class AuthzHandler implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HTTPResponse> {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final String TABLE_NAME = System.getenv("PERMISSIONS_TABLE_NAME");
 
-    // Set to false after the first invocation; lets k6 detect cold starts from
-    // the response body without needing CloudWatch access during the test run.
+    // Set to false after the first invocation so k6 can detect cold starts
+    // from the response body without needing CloudWatch access.
     private static volatile boolean coldStart = true;
+
+    private final DynamoDbClient dynamoDb;
+
+    // Default constructor — used by agent-based configs.
+    // The Java agent instruments DynamoDbClient automatically.
+    public AuthzHandler() {
+        this.dynamoDb = (TABLE_NAME != null && !TABLE_NAME.isBlank())
+                ? DynamoDbClient.create()
+                : null;
+    }
+
+    // Package-private — used by AuthzHandlerProgSdk to inject an OTel-instrumented client.
+    AuthzHandler(DynamoDbClient dynamoDb) {
+        this.dynamoDb = dynamoDb;
+    }
 
     @Override
     public APIGatewayV2HTTPResponse handleRequest(APIGatewayV2HTTPEvent event, Context context) {
@@ -35,11 +72,18 @@ public class AuthzHandler implements RequestHandler<APIGatewayV2HTTPEvent, APIGa
         long startMs = System.currentTimeMillis();
 
         String token = extractToken(event.getBody());
-        boolean authorized = validateToken(token);
+        boolean tokenValid = validateToken(token);
         String subject = extractSubject(token);
 
-        // Pad to ~25 ms to simulate consistent authz latency regardless of how
-        // quickly the crypto work finishes on a given instance type / memory tier.
+        // Permissions lookup — produces a DynamoDB child span when instrumented.
+        List<String> roles = lookupPermissions(subject);
+
+        // Authorized if the token is structurally valid and DynamoDB confirms
+        // the subject is active. Falls back to token-only when DynamoDB is not
+        // configured (dynamoDb == null).
+        boolean authorized = tokenValid && (dynamoDb == null || !roles.isEmpty());
+
+        // Pad to ~25 ms total to simulate consistent authz latency.
         long elapsed = System.currentTimeMillis() - startMs;
         if (elapsed < 25) {
             try {
@@ -56,6 +100,7 @@ public class AuthzHandler implements RequestHandler<APIGatewayV2HTTPEvent, APIGa
                 .put("subject", subject)
                 .put("coldStart", isColdStart)
                 .put("processingTimeMs", totalMs);
+        body.set("roles", MAPPER.valueToTree(roles));
 
         try {
             return APIGatewayV2HTTPResponse.builder()
@@ -68,6 +113,33 @@ public class AuthzHandler implements RequestHandler<APIGatewayV2HTTPEvent, APIGa
                     .withStatusCode(500)
                     .withBody("{\"error\":\"internal\"}")
                     .build();
+        }
+    }
+
+    /**
+     * Looks up the subject's roles and active status in DynamoDB.
+     * Returns an empty list if the subject is not found, is inactive,
+     * or if DynamoDB is not configured.
+     */
+    private List<String> lookupPermissions(String subject) {
+        if (dynamoDb == null || subject == null || "unknown".equals(subject)) {
+            return List.of();
+        }
+        try {
+            GetItemResponse resp = dynamoDb.getItem(r -> r
+                    .tableName(TABLE_NAME)
+                    .key(Map.of("subject", AttributeValue.fromS(subject))));
+
+            if (!resp.hasItem()) return List.of();
+
+            Map<String, AttributeValue> item = resp.item();
+            AttributeValue isActive = item.get("is_active");
+            if (isActive == null || !Boolean.TRUE.equals(isActive.bool())) return List.of();
+
+            AttributeValue rolesAttr = item.get("roles");
+            return rolesAttr != null ? rolesAttr.ss() : List.of();
+        } catch (Exception e) {
+            return List.of();
         }
     }
 
@@ -93,8 +165,7 @@ public class AuthzHandler implements RequestHandler<APIGatewayV2HTTPEvent, APIGa
 
     /**
      * Simulates real authz work: decode the JWT payload, run a SHA-256 loop to
-     * mimic HMAC verification, and do a simple policy check. The 50-iteration
-     * digest loop provides consistent CPU work without depending on system calls.
+     * mimic HMAC verification, and do a simple policy check.
      */
     private boolean validateToken(String token) {
         if (token == null || token.isEmpty()) return false;

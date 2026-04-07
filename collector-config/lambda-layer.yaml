@@ -11,11 +11,6 @@ receivers:
       http:
         endpoint: localhost:4318
 
-processors:
-  batch:
-    timeout: 1s  # Set a short timeout so that the Collector can flush before the Lambda runtime freezes the environment
-    send_batch_size: 256
-
 exporters:
   otlp_http:
     endpoint: ${env:OTLP_ENDPOINT}
@@ -27,17 +22,14 @@ exporters:
 service:
   telemetry:
     logs:
-      level: warn
+      level: info
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [batch]
       exporters: [otlp_http]
     metrics:
       receivers: [otlp]
-      processors: [batch]
       exporters: [otlp_http]
     logs:
       receivers: [otlp]
-      processors: [batch]
       exporters: [otlp_http]

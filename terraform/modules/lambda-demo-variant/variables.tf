@@ -169,6 +169,12 @@ variable "vpc_security_group_ids" {
   default     = null
 }
 
+variable "permissions_table_name" {
+  description = "Name of the DynamoDB permissions table. Passed as PERMISSIONS_TABLE_NAME env var when non-empty."
+  type        = string
+  default     = ""
+}
+
 variable "extra_env_vars" {
   description = "Additional environment variables merged into the Lambda function's environment. Applied last, so these override any computed values."
   type        = map(string)

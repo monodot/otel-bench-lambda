@@ -72,28 +72,6 @@ resource "aws_lambda_layer_version" "collector_config" {
   compatible_architectures = ["x86_64"]
 }
 
-# ── ADOT collector config Lambda layer ───────────────────────────────────────
-# Packages collector-config/adot-lambda-layer.yaml into a layer at the path
-# the ADOT bundled collector expects: /opt/collector-config/config.yaml
-# Uses 'otlphttp' exporter (vs 'otlp_http') for compatibility with ADOT v0.117.0.
-
-data "archive_file" "adot_collector_config_layer" {
-  type        = "zip"
-  output_path = "${path.module}/adot-collector-config-layer.zip"
-
-  source {
-    content  = file("${path.module}/../collector-config/adot-lambda-layer.yaml")
-    filename = "collector-config/config.yaml"
-  }
-}
-
-resource "aws_lambda_layer_version" "adot_collector_config" {
-  layer_name               = "${var.name_prefix}-adot-collector-config"
-  filename                 = data.archive_file.adot_collector_config_layer.output_path
-  source_code_hash         = data.archive_file.adot_collector_config_layer.output_base64sha256
-  compatible_runtimes      = ["java21"]
-  compatible_architectures = ["x86_64"]
-}
 
 # ── VPC networking for config 5 ───────────────────────────────────────────────
 
@@ -153,6 +131,7 @@ module "config_1_java" {
   source_code_hash          = local.java_source_hash
   execution_role_arn        = aws_iam_role.lambda.arn
   lambda_insights_layer_arn = var.lambda_insights_layer_arn
+  permissions_table_name    = aws_dynamodb_table.permissions.name
 
   tags = local.common_tags
 }
@@ -175,6 +154,7 @@ module "config_2_java" {
   otel_traces_exporter      = "none"
   otel_metrics_exporter     = "none"
   otel_logs_exporter        = "none"
+  permissions_table_name    = aws_dynamodb_table.permissions.name
 
   tags = local.common_tags
 }
@@ -198,6 +178,7 @@ module "config_3_java" {
   otel_logs_exporter          = "otlp"
   otel_exporter_otlp_endpoint = var.otlp_endpoint
   otel_exporter_otlp_headers  = local.grafana_otlp_headers
+  permissions_table_name      = aws_dynamodb_table.permissions.name
 
   tags = local.common_tags
 }
@@ -223,6 +204,7 @@ module "config_4_java" {
   otel_logs_exporter         = "otlp"
   otlp_endpoint              = var.otlp_endpoint
   otlp_auth_string           = local.otlp_auth_string
+  permissions_table_name     = aws_dynamodb_table.permissions.name
 
   tags = local.common_tags
 }
@@ -247,6 +229,7 @@ module "config_5_java" {
   otel_exporter_otlp_endpoint = "http://${aws_lb.ecs_collector.dns_name}:4318"
   vpc_subnet_ids              = aws_subnet.private[*].id
   vpc_security_group_ids      = [aws_security_group.config_5_lambda.id]
+  permissions_table_name      = aws_dynamodb_table.permissions.name
 
   tags = local.common_tags
 }
@@ -272,6 +255,7 @@ module "config_6_java" {
   otel_logs_exporter         = "none"
   otlp_endpoint              = var.otlp_endpoint
   otlp_auth_string           = local.otlp_auth_string
+  permissions_table_name     = aws_dynamodb_table.permissions.name
 
   tags = local.common_tags
 }
@@ -297,6 +281,7 @@ module "config_7_java" {
   otel_logs_exporter         = "none"
   otlp_endpoint              = var.otlp_endpoint
   otlp_auth_string           = local.otlp_auth_string
+  permissions_table_name     = aws_dynamodb_table.permissions.name
 
   tags = local.common_tags
 }
@@ -323,6 +308,7 @@ module "config_8_java" {
   otlp_endpoint              = var.otlp_endpoint
   otlp_auth_string           = local.otlp_auth_string
   memory_size                = 128
+  permissions_table_name     = aws_dynamodb_table.permissions.name
 
   tags = local.common_tags
 }
@@ -349,6 +335,7 @@ module "config_9_java" {
   otlp_endpoint              = var.otlp_endpoint
   otlp_auth_string           = local.otlp_auth_string
   memory_size                = 1024
+  permissions_table_name     = aws_dynamodb_table.permissions.name
 
   tags = local.common_tags
 }
@@ -375,6 +362,7 @@ module "config_10_java" {
   otlp_endpoint              = var.otlp_endpoint
   otlp_auth_string           = local.otlp_auth_string
   snapstart_enabled          = true
+  permissions_table_name     = aws_dynamodb_table.permissions.name
 
   tags = local.common_tags
 }
@@ -399,6 +387,7 @@ module "config_11_java" {
   otel_exporter_otlp_endpoint = var.otlp_endpoint
   otel_exporter_otlp_headers  = local.grafana_otlp_headers
   snapstart_enabled           = true
+  permissions_table_name      = aws_dynamodb_table.permissions.name
 
   tags = local.common_tags
 }
@@ -426,6 +415,7 @@ module "config_12_java" {
   otlp_endpoint              = var.otlp_endpoint
   otlp_auth_string           = local.otlp_auth_string
   fast_startup_enabled       = true
+  permissions_table_name     = aws_dynamodb_table.permissions.name
 
   tags = local.common_tags
 }
@@ -453,6 +443,7 @@ module "config_13_java" {
   otel_logs_exporter         = "otlp"
   otlp_endpoint              = var.otlp_endpoint
   otlp_auth_string           = local.otlp_auth_string
+  permissions_table_name     = aws_dynamodb_table.permissions.name
 
   tags = local.common_tags
 }
@@ -480,6 +471,7 @@ module "config_14_java" {
   otlp_auth_string           = local.otlp_auth_string
   fast_startup_enabled       = true
   snapstart_enabled          = true
+  permissions_table_name     = aws_dynamodb_table.permissions.name
 
   tags = local.common_tags
 }
@@ -506,6 +498,7 @@ module "config_15_java" {
   otlp_endpoint              = var.otlp_endpoint
   otlp_auth_string           = local.otlp_auth_string
   snapstart_enabled          = true
+  permissions_table_name     = aws_dynamodb_table.permissions.name
 
   tags = local.common_tags
 }
@@ -531,6 +524,7 @@ module "config_16_java" {
   collector_config_layer_arn = local.collector_config_layer_arn
   otlp_endpoint              = var.otlp_endpoint
   otlp_auth_string           = local.otlp_auth_string
+  permissions_table_name     = aws_dynamodb_table.permissions.name
 
   extra_env_vars = {
     OTEL_SERVICE_NAME     = "${var.name_prefix}-c16-prog-sdk-java"
@@ -544,10 +538,8 @@ module "config_16_java" {
 }
 
 # ── Config 17: Programmatic SDK + Collector Layer + SnapStart ─────────────────
-# Identical to c16 but with SnapStart enabled. Expected to show the same ~4%
-# trace coverage as c10/c11/c14/c15, confirming the missing-traces issue is in
-# the exporter connection lifecycle, not the agent. Sets up the baseline for
-# c18 which will add CRaC hooks to fix it.
+# Identical to c16 but with SnapStart enabled. Shows ~20% trace loss on the
+# first invocation after each restore due to the stale OTLP exporter connection.
 
 module "config_17_java" {
   count  = var.deploy_java ? 1 : 0
@@ -565,6 +557,7 @@ module "config_17_java" {
   otlp_endpoint              = var.otlp_endpoint
   otlp_auth_string           = local.otlp_auth_string
   snapstart_enabled          = true
+  permissions_table_name     = aws_dynamodb_table.permissions.name
 
   extra_env_vars = {
     OTEL_SERVICE_NAME     = "${var.name_prefix}-c17-prog-sdk-snap-java"
@@ -572,44 +565,6 @@ module "config_17_java" {
     OTEL_METRICS_EXPORTER = "none"
     OTEL_LOGS_EXPORTER    = "none"
     OTEL_PROPAGATORS      = "tracecontext,baggage"
-  }
-
-  tags = local.common_tags
-}
-
-# ── Config 18: AWS ADOT Java wrapper layer + SnapStart ────────────────────────
-# Uses the AWS-managed ADOT layer (aws-otel-java-wrapper-amd64-ver-*), which
-# bundles both the Java wrapper instrumentation and an OTel Collector extension
-# in a single layer. No separate collector layer is needed. The bundled collector
-# is configured via the shared collector config layer.
-# Directly comparable to c15 (community wrapper + SnapStart).
-
-module "config_18_java" {
-  count  = var.deploy_java && var.adot_java_wrapper_layer_arn != null ? 1 : 0
-  source = "./modules/lambda-demo-variant"
-
-  name_prefix                = "${var.name_prefix}-c18-adot-snap-java"
-  runtime                    = local.java_lang.runtime
-  handler                    = "com.example.AuthzHandler::handleRequest"
-  artifact_path              = local.java_lang.artifact_path
-  source_code_hash           = local.java_source_hash
-  execution_role_arn         = aws_iam_role.lambda.arn
-  lambda_insights_layer_arn  = var.lambda_insights_layer_arn
-  wrapper_layer_arn          = var.adot_java_wrapper_layer_arn
-  collector_config_layer_arn = aws_lambda_layer_version.adot_collector_config.arn
-  otel_traces_exporter       = "otlp"
-  otel_metrics_exporter      = "otlp"
-  otel_logs_exporter         = "otlp"
-  snapstart_enabled          = true
-
-  # Route the wrapper to the bundled ADOT collector (http/protobuf on port 4318),
-  # then the collector forwards to the external OTLP endpoint.
-  extra_env_vars = {
-    OTEL_EXPORTER_OTLP_ENDPOINT        = "http://localhost:4318"
-    OTEL_EXPORTER_OTLP_PROTOCOL        = "http/protobuf"
-    OPENTELEMETRY_COLLECTOR_CONFIG_URI = "file:///opt/collector-config/config.yaml"
-    OTLP_ENDPOINT                      = var.otlp_endpoint
-    OTLP_AUTH_STRING                   = local.otlp_auth_string
   }
 
   tags = local.common_tags
@@ -641,6 +596,7 @@ module "config_19_java" {
   otel_logs_exporter         = "otlp"
   otlp_endpoint              = var.otlp_endpoint
   otlp_auth_string           = local.otlp_auth_string
+  permissions_table_name     = aws_dynamodb_table.permissions.name
 
   extra_env_vars = {
     OTEL_INSTRUMENTATION_COMMON_DEFAULT_ENABLED = "false"
@@ -650,6 +606,7 @@ module "config_19_java" {
 
   tags = local.common_tags
 }
+
 
 
 # ════════════════════════════════════════════════════════════════════════════════

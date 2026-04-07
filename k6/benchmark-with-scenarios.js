@@ -56,7 +56,7 @@ const SUFFIXES = [
     'c07-traces-java',        'c08-128mb-java',           'c09-1024mb-java',
     'c10-snapstart-java',     'c11-direct-snap-java',    'c12-fast-startup-java',
     'c13-java-wrapper-java',  'c14-fast-snap-java',      'c15-wrapper-snap-java',
-    'c16-prog-sdk-java',      'c17-prog-sdk-snap-java',  'c18-adot-snap-java',
+    'c16-prog-sdk-java',      'c17-prog-sdk-snap-java',
     'c19-selective-instr-java',
     // Python — c01–c09 only (SnapStart / fast-startup / wrapper are Java-only)
     'c01-baseline-python',    'c02-agent-noop-python',   'c03-direct-python',

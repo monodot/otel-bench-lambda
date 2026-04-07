@@ -23,6 +23,13 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>bom</artifactId>
+                <version>2.42.28</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -40,15 +47,32 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>2.17.2</version>
+            <version>2.19.1</version>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-nop</artifactId>
             <version>2.0.16</version>
         </dependency>
-        <!-- OTel SDK for AuthzHandlerProgSdk (c16). Unused by the other configs
-             which rely on the javaagent layer instead. -->
+        <!-- AWS SDK v2 DynamoDB — used by all configs for the permissions lookup.
+             For agent-based configs the agent instruments the client automatically.
+             For programmatic SDK configs (c16/c17) AuthzHandlerProgSdk wires in
+             the OTel AWS SDK execution interceptor instead. -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>dynamodb</artifactId>
+        </dependency>
+
+        <!-- OTel AWS SDK v2 library instrumentation — used only by AuthzHandlerProgSdk.
+             Shows how to add a DynamoDB child span without requiring the Java agent. -->
+        <dependency>
+            <groupId>io.opentelemetry.instrumentation</groupId>
+            <artifactId>opentelemetry-aws-sdk-2.2</artifactId>
+            <version>2.26.1-alpha</version>
+        </dependency>
+
+        <!-- OTel SDK for AuthzHandlerProgSdk (c16/c17).
+             Unused by the other configs which rely on the javaagent layer instead. -->
         <dependency>
             <groupId>io.opentelemetry</groupId>
             <artifactId>opentelemetry-api</artifactId>
@@ -85,6 +109,11 @@
                             <excludes>
                                 <exclude>META-INF/*</exclude>
                                 <exclude>META-INF/versions/**</exclude>
+                                <!-- Exclude the AWS SDK SPI auto-registration for the OTel interceptor.
+                                     AuthzHandlerProgSdk (c16/c17) adds the interceptor explicitly via
+                                     AwsSdkTelemetry.create(), so SPI auto-registration is redundant
+                                     and would produce duplicate interceptor registrations. -->
+                                <exclude>META-INF/services/software.amazon.awssdk.core.interceptor.ExecutionInterceptor</exclude>
                             </excludes>
                         </filter>
                     </filters>

@@ -41,15 +41,14 @@ The tests comprise the following scenarios or configurations. Each of them varie
 | c15 | Collector Lambda Layer              | Full (Java wrapper layer)               | 512 MB      | **On**    | ✓    | —      |
 | c16 | **Collector Lambda Layer**          | **Full (programmatic SDK)**             | 512 MB      | Off       | ✓    | —      |
 | c17 | Collector Lambda Layer              | Full (programmatic SDK)                 | 512 MB      | **On**    | ✓    | —      |
-| c18 | **AWS ADOT layer (bundled)**        | **Full (AWS ADOT Java wrapper)**        | 512 MB      | **On**    | ✓    | —      |
 | c19 | Collector Lambda Layer              | **Selective (Lambda + SDK only)**       | 512 MB      | Off       | ✓    | —      |
 
 Notes:
 
 - c01 and c02 exist to establish a baseline. c02 loads the Java/Python agent but sets all exporters to `none`, isolating the cost of agent initialisation from the cost of exporting telemetry.
-- c16 and c17 use a programmatic OTel SDK initialisation (no agent layer) as a foundation for fixing the known SnapStart + OTel missing-traces issue. c17 is expected to show the same trace loss as c10/c11/c14/c15 until CRaC hooks are added in a future scenario.
-- c18 uses the AWS-managed ADOT Java wrapper layer (`aws-otel-java-wrapper-amd64-ver-*`), which bundles both the Java wrapper instrumentation and an OTel Collector in a single layer. Directly comparable to c15.
+- c16 and c17 use a programmatic OTel SDK initialisation (no agent layer). c17 still drops ~20% of traces on the first invocation after each SnapStart restore, because the OTLP exporter's TCP connection is stale at that point.
 - c19 uses the Java agent but disables all auto-instrumentation by default (`OTEL_INSTRUMENTATION_COMMON_DEFAULT_ENABLED=false`), re-enabling only `OTEL_INSTRUMENTATION_AWS_LAMBDA_ENABLED` and `OTEL_INSTRUMENTATION_AWS_SDK_ENABLED`. Directly comparable to c04 — tests whether pruning unused instrumentations reduces cold-start overhead.
+- All Java configs perform a DynamoDB `GetItem` (permissions lookup by JWT subject) on every invocation. For agent-based configs the Java agent instruments this automatically, producing a `aws.dynamodb` child span. For c16/c17 the OTel AWS SDK v2 library instrumentation is wired in manually via an execution interceptor.
 - For Java: _Fast startup_ refers to the `OTEL_JAVA_AGENT_FAST_STARTUP_ENABLED` setting. _Java Wrapper_ refers to using the wrapper Lambda layer (instead of the Java Agent Lambda layer).
 
 ## Prerequisites
@@ -169,7 +168,6 @@ k6 cloud run \
   --env C15_WRAPPER_SNAP_JAVA_URL=$(terraform -chdir=terraform output -raw config_15_java_url) \
   --env C16_PROG_SDK_JAVA_URL=$(terraform -chdir=terraform output -raw config_16_java_url) \
   --env C17_PROG_SDK_SNAP_JAVA_URL=$(terraform -chdir=terraform output -raw config_17_java_url) \
-  --env C18_ADOT_SNAP_JAVA_URL=$(terraform -chdir=terraform output -raw config_18_java_url) \
   --env C19_SELECTIVE_INSTR_JAVA_URL=$(terraform -chdir=terraform output -raw config_19_java_url) \
   k6/benchmark-with-scenarios.js
 ```
@@ -213,7 +211,6 @@ k6 cloud run \
   --env C14_FAST_SNAP_JAVA_URL=$(terraform -chdir=terraform output -raw config_14_java_url) \
   --env C15_WRAPPER_SNAP_JAVA_URL=$(terraform -chdir=terraform output -raw config_15_java_url) \
   --env C17_PROG_SDK_SNAP_JAVA_URL=$(terraform -chdir=terraform output -raw config_17_java_url) \
-  --env C18_ADOT_SNAP_JAVA_URL=$(terraform -chdir=terraform output -raw config_18_java_url) \
   k6/benchmark-with-scenarios.js
 ```
 
@@ -228,7 +225,7 @@ k6 cloud run \
   k6/benchmark-with-scenarios.js
 ```
 
-Comparing regular SnapStart with manual SDK SnapStart:
+Comparing regular SnapStart with programmatic SDK SnapStart:
 
 ```shell
 k6 cloud run \
@@ -355,9 +352,12 @@ use the OTel Collector running as a Lambda Extension (via the ADOT collector
 layer). The function sends OTLP HTTP to `localhost:4318`; the extension forwards
 to Grafana Cloud.
 
-Config c18 also uses a bundled collector, but via the AWS-managed ADOT Java wrapper
-layer (`aws-otel-java-wrapper-amd64-ver-*`) which packages both the wrapper
-instrumentation and the collector in a single layer.
+
+### DynamoDB permissions table
+
+All Java configs perform a `GetItem` on the `{name_prefix}-permissions` table to look up roles for the JWT subject on every invocation. This produces a realistic child span in every trace.
+
+For **agent-based configs** (c02–c15, c19) the Java agent instruments `DynamoDbClient` automatically via bytecode injection — no code changes required. For **programmatic SDK configs** (c16, c17) `AuthzHandlerProgSdk` wires the OTel AWS SDK v2 execution interceptor (`AwsSdkTelemetry.create(otelSdk).createExecutionInterceptor()`) into the client at initialisation time, producing equivalent `aws.dynamodb.*` span attributes without the agent.
 
 ### External ECS collector
 
@@ -418,7 +418,6 @@ This test was run on **2026-04-06**. All durations are p95, measured by k6 from 
 | c15 | Java Wrapper + SnapStart           | 3,230 ms              | 68.1 ms         | n/a                     | n/a               |
 | c16 | Programmatic SDK (no SnapStart)    | —                     | —               | n/a                     | n/a               |
 | c17 | Programmatic SDK + SnapStart       | —                     | —               | n/a                     | n/a               |
-| c18 | AWS ADOT wrapper + SnapStart       | —                     | —               | n/a                     | n/a               |
 | c19 | Selective instrumentation (Agent)  | —                     | —               | n/a                     | n/a               |
 
 ### Summary of findings
@@ -427,3 +426,4 @@ This test was run on **2026-04-06**. All durations are p95, measured by k6 from 
 - Direct export to an external OTLP endpoint (without a collector) is often the slowest
 - Placing a Lambda in a VPC (so it can access a private otel-collector instance) can add latency to cold start times, due to the work required in setting up the network interface. [See Yan Cui's blog.](https://theburningmonk.com/2018/01/im-afraid-youre-thinking-about-aws-lambda-cold-starts-all-wrong/) 
 - Setting memory to an artificially low value (e.g. 128Mb) slows down performance. So, don't do that :)
+- SnapStart seems to have an impact on zero-code (agent/wrapper) instrumentation. If using SnapStart, it's better to initialise the SDK manually.

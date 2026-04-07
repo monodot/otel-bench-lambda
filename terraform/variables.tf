@@ -62,11 +62,6 @@ variable "java_wrapper_layer_arn" {
   default     = null
 }
 
-variable "adot_java_wrapper_layer_arn" {
-  description = "ARN of the AWS ADOT Java wrapper Lambda layer (aws-otel-java-wrapper-amd64-ver-*). Bundles the OTel wrapper and collector in a single layer. Required for c18."
-  type        = string
-  default     = null
-}
 
 variable "python_agent_layer_arn" {
   description = "ARN of the ADOT Python Lambda layer (aws-otel-python-amd64-ver-*). Required when deploy_python = true."
