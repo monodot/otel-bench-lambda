@@ -124,7 +124,7 @@ Use one of the `k6 cloud run` options if you want to use the dashboard in this r
 
 ### Run load tests locally
 
-Test just the baseline scenarios for Java and Python:
+You can run the included load tests entirely locally. Here's the command to just run the baseline (uninstrumented) tests for Java and Python:
 
 ```bash
 k6 run \
@@ -134,17 +134,21 @@ k6 run \
   k6/benchmark-with-scenarios.js
 ```
 
+(To see the command to run all tests, scroll a bit further below, and omit the `cloud` subcommand.)
+
 Each run produces CSV output in `k6/results/`. You may also consider streaming the results to your own database (e.g. Prometheus) using k6's different outputs - [see the k6 docs for more info](https://grafana.com/docs/k6/latest/get-started/results-output/).
 
-### Run load tests with Grafana Cloud k6
+### Run load tests in Grafana Cloud k6
 
-You can run this test entirely within [Grafana Cloud's free tier](https://grafana.com/auth/sign-up). k6 usage is measured in VUh (virtual user-hours), and these tests fall within the included free usage.
+You can run this test entirely within [Grafana Cloud's free tier](https://grafana.com/auth/sign-up). k6 usage is measured in VUh (virtual user-hours), and these tests fall within the included free usage. Most of these commands give an estimate of the cost of running the test, measured in VUh.
 
 Head to your Grafana Cloud instance > Testing and synthetics > Performance > Settings and grab your **Personal API token**, then:
 
 ```bash
 k6 cloud login -t TOKEN --stack SLUG
 ```
+
+#### All tests
 
 Run the benchmark test for all Java configs (30m duration, 40 VUh approx.):
 
@@ -189,6 +193,8 @@ k6 cloud run \
   k6/benchmark-with-scenarios.js
 ```
 
+#### Basic cross-language comparison
+
 Run a cross-language comparison (just the baseline and full-instrumentation configs) (9m duration, 10 VUh approx.):
 
 ```bash
@@ -201,7 +207,10 @@ k6 cloud run \
   k6/benchmark-with-scenarios.js
 ```
 
-Just the SnapStart variants:
+#### More example setups
+
+<details>
+<summary>Just the SnapStart variants</summary>
 
 ```shell
 k6 cloud run \
@@ -214,7 +223,10 @@ k6 cloud run \
   k6/benchmark-with-scenarios.js
 ```
 
-Just the programmatic SDK initialisation (with c13 as a baseline as it's got a good balance of reliability and latency):
+</details>
+
+<details>
+<summary>Just the programmatic SDK initialisation (with c13 as a baseline as it's got a good balance of reliability and latency)</summary>
 
 ```shell
 k6 cloud run \
@@ -225,7 +237,10 @@ k6 cloud run \
   k6/benchmark-with-scenarios.js
 ```
 
-Comparing regular SnapStart with programmatic SDK SnapStart:
+</details>
+
+<details>
+<summary>Comparing regular SnapStart with programmatic SDK SnapStart</summary>
 
 ```shell
 k6 cloud run \
@@ -235,7 +250,10 @@ k6 cloud run \
   k6/benchmark-with-scenarios.js
 ```
 
-Comparing the standard Collector Layer with the same approach but only selective instrumentation turned on:
+</details>
+
+<details>
+<summary>Comparing the standard Collector Layer with the same approach but only selective instrumentation turned on</summary>
 
 ```shell
 k6 cloud run \
@@ -244,6 +262,10 @@ k6 cloud run \
     --env C19_SELECTIVE_INSTR_JAVA_URL=$(terraform -chdir=terraform output -raw config_19_java_url) \
     k6/benchmark-with-scenarios.js
 ```
+
+</details>
+
+### Run load tests locally but publish results to Grafana Cloud k6
 
 Or, to run locally but publish results to Grafana Cloud k6, use the `--local-execution` flag:
 
